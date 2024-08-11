@@ -1,0 +1,13 @@
+{
+  "Author": "Soda Ohoh",
+  "Name": "Cast Bar Translator",
+  "Punchline": "Displays bilingual action names on cast bars.",
+  "Description": "Shows translated action names alongside the original text on target and focus target cast bars. Supports English, Japanese, German, French, and Traditional Chinese.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "castbar",
+    "translation",
+    "bilingual",
+    "language"
+  ]
+}
