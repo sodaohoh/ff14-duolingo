@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
@@ -42,7 +42,7 @@ public class ConfigWindow : Window, IDisposable
     {
         // can't ref a property, so use a local copy
         var configValue = Configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool", ref configValue))
+        if (ImGui.Checkbox("Random Config Bool1123", ref configValue))
         {
             Configuration.SomePropertyToBeSavedAndWithADefault = configValue;
             // can save immediately on change, if you don't want to provide a "Save and Close" button

@@ -1,58 +1,64 @@
-﻿using System;
-using System.Numerics;
-using Dalamud.Interface.Internal;
-using Dalamud.Interface.Utility;
+using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
-using Dalamud.Plugin.Services;
+using Dalamud.Plugin;
 using ImGuiNET;
+using System;
+using System.Numerics;
 
 namespace SamplePlugin.Windows;
 
 public class MainWindow : Window, IDisposable
 {
-    private string GoatImagePath;
-    private Plugin Plugin;
+    private string JapaneseName { get; set; } = string.Empty;
+    private string EnglishName { get; set; } = string.Empty;
+    private static ImFontPtr customFont;
 
-    // We give this window a hidden ID using ##
-    // So that the user will see "My Amazing Window" as window title,
-    // but for ImGui the ID is "My Amazing Window##With a hidden ID"
-    public MainWindow(Plugin plugin, string goatImagePath)
-        : base("My Amazing Window##With a hidden ID", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+
+    public MainWindow(Plugin plugin) : base(
+        "Dual Casting",
+        ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoResize)
     {
-        SizeConstraints = new WindowSizeConstraints
-        {
-            MinimumSize = new Vector2(375, 330),
-            MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
-        };
+        
+        var io = ImGui.GetIO();
+        customFont = io.Fonts.AddFontFromFileTTF(@"C:\Windows\Fonts\arialbd.ttf", 24);
+        ImGui.GetIO().Fonts.Build(); // Rebuild the font atlas
 
-        GoatImagePath = goatImagePath;
-        Plugin = plugin;
+
+
     }
 
-    public void Dispose() { }
+    public void SetSpellNames(string japanese, string english)
+    {
+        JapaneseName = japanese;
+        EnglishName = english;
+    }
 
     public override void Draw()
     {
-        ImGui.Text($"The random config bool is {Plugin.Configuration.SomePropertyToBeSavedAndWithADefault}");
 
-        if (ImGui.Button("Show Settings"))
-        {
-            Plugin.ToggleConfigUI();
-        }
+        //ImGui.PushFont(customFont);
+        ImGui.SetWindowFontScale(1.25f);
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.957f, 0.903f, 0.854f, 1.0f)); // #fff9e9 color
 
-        ImGui.Spacing();
 
-        ImGui.Text("Have a goat:");
-        var goatImage = Plugin.TextureProvider.GetFromFile(GoatImagePath).GetWrapOrDefault();
-        if (goatImage != null)
-        {
-            ImGuiHelpers.ScaledIndent(55f);
-            ImGui.Image(goatImage.ImGuiHandle, new Vector2(goatImage.Width, goatImage.Height));
-            ImGuiHelpers.ScaledIndent(-55f);
-        }
-        else
-        {
-            ImGui.Text("Image not found.");
-        }
+        float windowWidth = ImGui.GetWindowWidth();
+        float textWidth = ImGui.CalcTextSize(EnglishName).X;
+
+        // Ensure the text is positioned within visible bounds
+        ImGui.SetCursorPosX(Math.Max(0, windowWidth - textWidth - ImGui.GetStyle().ItemSpacing.X));
+
+
+        ImGui.Text($"{EnglishName}");
+
+        ImGui.PopStyleColor(); // Reset to default color
+        ImGui.SetWindowFontScale(1f);
+        //ImGui.PopFont();
+        //ImGui.TreePop();
+    }
+
+    public void Dispose()
+    {
+        //ImGui.PopFont();
+        // No additional disposal logic required unless managing other resources
     }
 }
