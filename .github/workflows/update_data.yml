@@ -1,16 +1,16 @@
 name: Update Translation Data
 
 on:
-  # 1. 排程執行：每週二 UTC 時間 10:00 (台灣時間 18:00) 執行
-  # 這是配合 FFXIV 通常維修結束的時間
+  # Scheduled: Every Tuesday at 10:00 UTC (18:00 Taiwan time)
+  # This timing aligns with FFXIV's typical maintenance end time
   schedule:
     - cron: '0 10 * * 2'
 
-  # 2. 手動執行：讓你在 GitHub 網頁上可以按按鈕手動觸發
+  # Manual trigger via GitHub Actions UI
   workflow_dispatch:
 
 permissions:
-  contents: write # 必須給予寫入權限，才能 Commit 回去
+  contents: write  # Required for committing changes
 
 jobs:
   build:

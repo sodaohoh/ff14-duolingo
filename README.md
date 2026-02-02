@@ -1,76 +1,166 @@
-> ⚠️ **Don't click Fork!**
-> 
-> This is a GitHub Template repo. If you want to use this for a plugin, just [use this template][new-repo] to make a new repo!
->
-> ![image](https://github.com/goatcorp/SamplePlugin/assets/16760685/d9732094-e1ed-4769-a70b-58ed2b92580c)
+# Cast Bar Translator
 
-# SamplePlugin
+A Dalamud plugin that displays bilingual action names on cast bars — learn FFXIV skill names in different languages while you play!
 
-[![Use This Template badge](https://img.shields.io/badge/Use%20This%20Template-0?logo=github&labelColor=grey)][new-repo]
+## What It Does
 
+When an enemy (or ally) is casting an action, this plugin displays the action name in **two languages** of your choice. It's like Duolingo, but for FFXIV!
 
-Simple example plugin for Dalamud.
+**Example (Japanese + English):**
+```
+ファイジャ      ← Learning target
+Fire IV         ← Native/reference
+```
 
-This is not designed to be the simplest possible example, but it is also not designed to cover everything you might want to do. For more detailed questions, come ask in [the Discord](https://discord.gg/holdshift).
+**Example (Chinese + Japanese):**
+```
+火焰           ← Learning target
+ファイア       ← Native/reference
+```
 
-## Main Points
+You can mix and match **any two languages** from the supported list!
 
-* Simple functional plugin
-  * Slash command
-  * Main UI
-  * Settings UI
-  * Image loading
-  * Plugin json
-* Simple, slightly-improved plugin configuration handling
-* Project organization
-  * Copies all necessary plugin files to the output directory
-    * Does not copy dependencies that are provided by dalamud
-    * Output directory can be zipped directly and have exactly what is required
-  * Hides data files from visual studio to reduce clutter
-    * Also allows having data files in different paths than VS would usually allow if done in the IDE directly
+## Supported Languages
 
+| Language | Source |
+|----------|--------|
+| English | Game Data |
+| Japanese | Game Data |
+| German | Game Data |
+| French | Game Data |
+| Traditional Chinese | External JSON (auto-updated weekly) |
 
-The intention is less that any of this is used directly in other projects, and more to show how similar things can be done.
+## Features
 
-## How To Use
+- Works on **Target**, **Target Cast Bar**, and **Focus Target** frames
+- Configurable cast bar height for two-line display
+- Automatic Traditional Chinese data updates via GitHub Actions
+- Minimal performance impact with smart caching
 
-### Getting Started
-
-To begin, [clone this template repository][new-repo] to your own GitHub account. This will automatically bring in everything you need to get a jumpstart on development. You do not need to fork this repository unless you intend to contribute modifications to it.
-
-Be sure to also check out the [Dalamud Developer Docs][dalamud-docs] for helpful information about building your own plugin. The Developer Docs includes helpful information about all sorts of things, including [how to submit][submit] your newly-created plugin to the official repository. Assuming you use this template repository, the provided project build configuration and license are already chosen to make everything a breeze.
-
-[new-repo]: https://github.com/new?template_name=SamplePlugin&template_owner=goatcorp
-[dalamud-docs]: https://dalamud.dev
-[submit]: https://dalamud.dev/plugin-development/plugin-submission
+## Installation
 
 ### Prerequisites
 
-SamplePlugin assumes all the following prerequisites are met:
+**System Requirements:**
+- Windows 10 or higher
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Visual Studio 2022+ with ".NET Desktop Development" workload
+- Git
 
-* XIVLauncher, FINAL FANTASY XIV, and Dalamud have all been installed and the game has been run with Dalamud at least once.
-* XIVLauncher is installed to its default directories and configurations.
-  * If a custom path is required for Dalamud's dev directory, it must be set with the `DALAMUD_HOME` environment variable.
-* A .NET Core 8 SDK has been installed and configured, or is otherwise available. (In most cases, the IDE will take care of this.)
+**Game Requirements:**
+- FINAL FANTASY XIV installed
+- [XIVLauncher](https://goatcorp.github.io/) installed
+- Game launched with Dalamud enabled at least once (this downloads dev files to `%appdata%\XIVLauncher\addon\Hooks\dev\`)
 
-### Building
+**Optional:**
+If XIVLauncher is not installed in the default location, set the environment variable:
+```
+DALAMUD_HOME=C:\your\path\addon\Hooks\dev\
+```
 
-1. Open up `SamplePlugin.sln` in your C# editor of choice (likely [Visual Studio 2022](https://visualstudio.microsoft.com) or [JetBrains Rider](https://www.jetbrains.com/rider/)).
-2. Build the solution. By default, this will build a `Debug` build, but you can switch to `Release` in your IDE.
-3. The resulting plugin can be found at `SamplePlugin/bin/x64/Debug/SamplePlugin.dll` (or `Release` if appropriate.)
+### Building from Source
 
-### Activating in-game
+```bash
+# Verify .NET version (should be 10.0.x)
+dotnet --version
 
-1. Launch the game and use `/xlsettings` in chat or `xlsettings` in the Dalamud Console to open up the Dalamud settings.
-    * In here, go to `Experimental`, and add the full path to the `SamplePlugin.dll` to the list of Dev Plugin Locations.
-2. Next, use `/xlplugins` (chat) or `xlplugins` (console) to open up the Plugin Installer.
-    * In here, go to `Dev Tools > Installed Dev Plugins`, and the `SamplePlugin` should be visible. Enable it.
-3. You should now be able to use `/pmycommand` (chat) or `pmycommand` (console)!
+# Clone and build
+git clone https://github.com/your-username/CastBarTranslator.git
+cd CastBarTranslator
+dotnet build CastBarTranslator.sln
+```
 
-Note that you only need to add it to the Dev Plugin Locations once (Step 1); it is preserved afterwards. You can disable, enable, or load your plugin on startup through the Plugin Installer.
+Output: `CastBarTranslator/bin/x64/Debug/CastBarTranslator.dll`
 
-### Reconfiguring for your own uses
+### Install from Third-Party Repo (Recommended)
 
-Basically, just replace all references to `SamplePlugin` in all of the files and filenames with your desired name, then start building the plugin of your dreams. You'll figure it out 😁
+1. In-game, open Dalamud settings with `/xlsettings`
+2. Go to **Experimental** tab
+3. Scroll down to **Custom Plugin Repositories**
+4. Add this URL:
+   ```
+   https://raw.githubusercontent.com/your-username/CastBarTranslator/master/repo.json
+   ```
+5. Save and close settings
+6. Open Plugin Installer with `/xlplugins`
+7. Search for "Cast Bar Translator" and install
 
-Dalamud will load the JSON file (by default, `SamplePlugin/SamplePlugin.json`) next to your DLL and use it for metadata, including the description for your plugin in the Plugin Installer. Make sure to update this with information relevant to _your_ plugin!
+### Install from Source (Development)
+
+1. Build the plugin (see above)
+2. In-game, open Dalamud settings with `/xlsettings`
+3. Go to **Experimental** tab
+4. Add the path to `CastBarTranslator.dll` in Dev Plugin Locations
+5. Open Plugin Installer with `/xlplugins`
+6. Enable **Cast Bar Translator** under Dev Tools > Installed Dev Plugins
+
+## Configuration
+
+Open the plugin settings to:
+- Select **Top Language** (the language you want to learn)
+- Select **Bottom Language** (your native/reference language)
+- Adjust cast bar height (30-60px)
+- Reload Chinese data manually if needed
+
+## How It Works
+
+```
+Target Casting → Get Action ID → Lookup Both Languages → Display Bilingual Text
+                                        ↓
+                        ┌───────────────┴───────────────┐
+                        ↓                               ↓
+                   Top Language                   Bottom Language
+                   (Learning)                     (Reference)
+                        ↓                               ↓
+              Game Data or JSON              Game Data or JSON
+```
+
+## Data Updates
+
+Traditional Chinese translations are automatically updated every Tuesday at 10:00 UTC via GitHub Actions, syncing with FFXIV's typical maintenance schedule.
+
+Data source: [ffxiv-datamining-cn](https://github.com/thewakingsands/ffxiv-datamining-cn)
+
+## Project Structure
+
+```
+ff14-duolingo/
+├── CastBarTranslator/          # C# plugin source
+│   ├── Windows/
+│   │   └── ConfigWindow.cs     # Settings UI
+│   ├── Configuration.cs        # Plugin settings
+│   └── Plugin.cs               # Main plugin logic
+├── scripts/
+│   └── generate_translations.py  # Chinese data generator
+├── data/
+│   └── goat.png                # Plugin icon
+└── actions_zhtw.json           # Traditional Chinese translations
+```
+
+## Known Limitations
+
+### Chinese Font Support
+
+The game's native UI fonts do not support CJK (Chinese/Japanese/Korean) characters. This means:
+
+- **English, German, French**: Display correctly on cast bars
+- **Japanese**: Uses game's built-in Japanese font support
+- **Traditional Chinese**: May display as boxes or garbled text on cast bars
+
+The Chinese data is still useful for:
+- Reference in the config window (which uses Dalamud's font)
+- Future ImGui overlay implementation
+
+## License
+
+AGPL-3.0-or-later
+
+## Contributing
+
+Issues and pull requests are welcome!
+
+## Acknowledgments
+
+- [Dalamud](https://github.com/goatcorp/Dalamud) - Plugin framework
+- [ffxiv-datamining-cn](https://github.com/thewakingsands/ffxiv-datamining-cn) - Chinese game data
+- [OpenCC](https://github.com/BYVoid/OpenCC) - Simplified/Traditional Chinese conversion

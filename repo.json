@@ -1,0 +1,27 @@
+[
+  {
+    "Author": "Soda Ohoh",
+    "Name": "Cast Bar Translator",
+    "Punchline": "Learn FFXIV skill names in different languages while you play!",
+    "Description": "Displays bilingual action names on cast bars. Select any two languages (English, Japanese, German, French, Traditional Chinese) to show on target cast bars - perfect for learning skill names in another language.",
+    "Changelog": "Initial release",
+    "InternalName": "CastBarTranslator",
+    "AssemblyVersion": "0.0.0.1",
+    "RepoUrl": "https://github.com/adcf3016/ff14-duolingo",
+    "ApplicableVersion": "any",
+    "Tags": [
+      "castbar",
+      "translation",
+      "language",
+      "learning"
+    ],
+    "CategoryTags": [
+      "other"
+    ],
+    "DalamudApiLevel": 14,
+    "IconUrl": "https://raw.githubusercontent.com/your-username/CastBarTranslator/master/data/goat.png",
+    "DownloadLinkInstall": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip",
+    "DownloadLinkTesting": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip",
+    "DownloadLinkUpdate": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip"
+  }
+]

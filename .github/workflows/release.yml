@@ -1,0 +1,72 @@
+name: Update Repo JSON
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to set (e.g., 1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update repo.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO="${{ github.repository }}"
+
+          # Update AssemblyVersion
+          jq --arg ver "$VERSION" '.[0].AssemblyVersion = $ver' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          # Update RepoUrl
+          jq --arg url "https://github.com/$REPO" '.[0].RepoUrl = $url' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          # Update IconUrl
+          jq --arg url "https://raw.githubusercontent.com/$REPO/master/data/goat.png" '.[0].IconUrl = $url' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          # Update DownloadLinkInstall
+          jq --arg url "https://github.com/$REPO/releases/download/v$VERSION/CastBarTranslator.zip" '.[0].DownloadLinkInstall = $url' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          # Update DownloadLinkTesting
+          jq --arg url "https://github.com/$REPO/releases/download/v$VERSION/CastBarTranslator.zip" '.[0].DownloadLinkTesting = $url' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          # Update DownloadLinkUpdate
+          jq --arg url "https://github.com/$REPO/releases/download/v$VERSION/CastBarTranslator.zip" '.[0].DownloadLinkUpdate = $url' repo.json > repo.tmp && mv repo.tmp repo.json
+
+          cat repo.json
+
+      - name: Commit and push
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git add repo.json
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update repo.json for v${{ steps.version.outputs.version }} [skip ci]"
+            git push
+          fi
