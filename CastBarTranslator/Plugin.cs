@@ -13,8 +13,6 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.Windowing;
 using Newtonsoft.Json;
 using ActionSheet = Lumina.Excel.Sheets.Action;
-using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Game.Text.SeStringHandling.Payloads;
 using CastBarTranslator.Windows;
 
 namespace CastBarTranslator;
@@ -255,26 +253,15 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (topName == bottomName)
             return;
 
-        // Check if we already set the text (avoid flickering)
-        var currentText = textNode->NodeText.ToString();
-        if (currentText.Contains(bottomName))
-            return; // Already has both languages
+        // Combine names (top language on first line, bottom on second)
+        var newText = $"{topName}\n{bottomName}";
 
-        // Combine names with SeString (FFXIV native text format)
-        var seString = new SeStringBuilder()
-            .AddText(topName)
-            .Add(new NewLinePayload())
-            .AddText(bottomName)
-            .Build();
+        // Always set text (game resets it constantly)
+        SetNodeText(textNode, newText);
 
-        SetNodeText(textNode, seString);
-
-        // Adjust height for two-line display
+        // Always adjust height for two-line display
         var castBarHeight = Configuration.CastBarHeight;
-        if (textNode->AtkResNode.Height < castBarHeight)
-        {
-            textNode->AtkResNode.SetHeight((ushort)castBarHeight);
-        }
+        textNode->AtkResNode.SetHeight((ushort)castBarHeight);
     }
 
     private string GetActionName(
@@ -309,15 +296,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
         return (AtkTextNode*)node;
     }
 
-    private void SetNodeText(AtkTextNode* node, SeString seString)
+    private void SetNodeText(AtkTextNode* node, string text)
     {
         FreeLastString();
 
-        var encoded = seString.Encode();
-        var bytes = new byte[encoded.Length + 1];
-        encoded.CopyTo(bytes, 0);
-        bytes[encoded.Length] = 0; // Null terminator
-
+        var bytes = Encoding.UTF8.GetBytes(text + "\0");
         _lastAllocatedStringPtr = Marshal.AllocHGlobal(bytes.Length);
         Marshal.Copy(bytes, 0, _lastAllocatedStringPtr, bytes.Length);
 
