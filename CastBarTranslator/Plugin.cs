@@ -72,10 +72,10 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // Initialize data based on config
         ReloadDataSources();
 
-        // Register cast bar hooks (PostRefresh = after game updates the addon)
-        AddonLifecycle.RegisterListener(AddonEvent.PostRefresh, AddonTargetInfo, OnAddonPostRefresh);
-        AddonLifecycle.RegisterListener(AddonEvent.PostRefresh, AddonTargetInfoCastBar, OnAddonPostRefresh);
-        AddonLifecycle.RegisterListener(AddonEvent.PostRefresh, AddonFocusTargetInfo, OnAddonPostRefresh);
+        // Register cast bar hooks (PostDraw = every frame after game draws)
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfo, OnAddonPostDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfoCastBar, OnAddonPostDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonFocusTargetInfo, OnAddonPostDraw);
 
         // Register UI handlers
         PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -88,7 +88,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _windowSystem.RemoveAllWindows();
-        AddonLifecycle.UnregisterListener(OnAddonPostRefresh);
+        AddonLifecycle.UnregisterListener(OnAddonPostDraw);
         FreeLastString();
     }
 
@@ -204,7 +204,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         return directory != null ? Path.Combine(directory, ChineseDataFilename) : ChineseDataFilename;
     }
 
-    private void OnAddonPostRefresh(AddonEvent type, AddonArgs args)
+    private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)(nint)args.Addon;
         if (addon == null || !addon->IsVisible)
@@ -254,20 +254,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // Combine names
         var newText = $"{topName}\n{bottomName}";
 
-        // Cache check to avoid redundant updates
-        var castBarHeight = Configuration.CastBarHeight;
-        if (newText == _lastGeneratedString)
-        {
-            // Enforce configured height
-            if (textNode->AtkResNode.Height != castBarHeight)
-                textNode->AtkResNode.SetHeight((ushort)castBarHeight);
-            return;
-        }
-
-        // Update text
+        // Always update text (game may have reset it)
         SetNodeTextSafe(textNode, newText);
 
         // Adjust height for two-line display
+        var castBarHeight = Configuration.CastBarHeight;
         if (textNode->AtkResNode.Height < castBarHeight)
         {
             textNode->AtkResNode.SetHeight((ushort)castBarHeight);
