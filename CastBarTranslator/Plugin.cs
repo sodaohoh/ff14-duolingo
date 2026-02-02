@@ -44,9 +44,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // Memory management for unmanaged string allocation
     private IntPtr _lastAllocatedStringPtr = IntPtr.Zero;
 
-    // Track last processed action to avoid redundant updates
-    private uint _lastActionId = 0;
-
     // Data sources for top language (learning target)
     private Lumina.Excel.ExcelSheet<ActionSheet>? _topLuminaSheet;
     private Dictionary<uint, string>? _topExternalMap;
@@ -256,15 +253,14 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (topName == bottomName)
             return;
 
-        // Combine names - try different separators
-        // Game might use different newline character
-        var newText = $"{topName}\r\n{bottomName}";
+        // Combine names with newline
+        var newText = $"{topName}\n{bottomName}";
 
         // Always set text (game resets it constantly)
         SetNodeText(textNode, newText);
 
         // Enable multiline flag so newlines render properly
-        textNode->TextFlags |= (byte)TextFlags.MultiLine;
+        textNode->TextFlags |= TextFlags.MultiLine;
 
         // Always adjust height for two-line display
         var castBarHeight = Configuration.CastBarHeight;
