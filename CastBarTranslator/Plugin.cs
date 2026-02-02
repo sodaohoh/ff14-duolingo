@@ -37,6 +37,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
 
     public Configuration Configuration { get; init; }
 
@@ -115,10 +116,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to load language data");
-            PluginInterface.UiBuilder.AddNotification(
-                $"Failed to load language: {ex.Message}",
-                "Cast Bar Translator",
-                Dalamud.Interface.ImGuiNotification.NotificationType.Error);
+            NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
+            {
+                Content = $"Failed to load language: {ex.Message}",
+                Title = "Cast Bar Translator",
+                Type = Dalamud.Interface.ImGuiNotification.NotificationType.Error,
+            });
         }
     }
 
@@ -168,10 +171,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         else
         {
             Log.Warning($"Chinese data file not found: {path}");
-            PluginInterface.UiBuilder.AddNotification(
-                $"Missing file: {ChineseDataFilename}",
-                "Cast Bar Translator",
-                Dalamud.Interface.ImGuiNotification.NotificationType.Warning);
+            NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
+            {
+                Content = $"Missing file: {ChineseDataFilename}",
+                Title = "Cast Bar Translator",
+                Type = Dalamud.Interface.ImGuiNotification.NotificationType.Warning,
+            });
             return null;
         }
     }
@@ -184,10 +189,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         ReloadDataSources();
         if (showNotification && IsChineseDataLoaded)
         {
-            PluginInterface.UiBuilder.AddNotification(
-                "Data reloaded successfully.",
-                "Cast Bar Translator",
-                Dalamud.Interface.ImGuiNotification.NotificationType.Success);
+            NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
+            {
+                Content = "Data reloaded successfully.",
+                Title = "Cast Bar Translator",
+                Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success,
+            });
         }
     }
 
@@ -199,7 +206,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
-        var addon = (AtkUnitBase*)args.Addon;
+        var addon = (AtkUnitBase*)args.Addon.Value;
         if (addon == null || !addon->IsVisible)
             return;
 
@@ -282,7 +289,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (luminaSheet != null)
         {
             var row = luminaSheet.GetRowOrDefault(actionId);
-            return row.Name.ExtractText();
+            if (row.RowId != 0)
+                return row.Name.ExtractText();
         }
 
         return string.Empty;
