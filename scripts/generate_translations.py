@@ -5,7 +5,7 @@ import os
 import opencc
 
 # 國服資料來源
-CN_ACTION_CSV_URL = "https://raw.githubusercontent.com/xivapi-cn/ffxiv-datamining/master/csv/Action.csv"
+CN_ACTION_CSV_URL = "https://raw.githubusercontent.com/thewakingsands/ffxiv-datamining-cn/refs/heads/master/Action.csv"
 # 輸出檔案名稱 (存放在 Repo 根目錄)
 OUTPUT_FILENAME = "actions_zhtw.json"
 
