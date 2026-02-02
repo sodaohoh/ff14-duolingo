@@ -11,8 +11,8 @@ using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.Windowing;
-using Lumina.Excel.Sheets;
 using Newtonsoft.Json;
+using ActionSheet = Lumina.Excel.Sheets.Action;
 using CastBarTranslator.Windows;
 
 namespace CastBarTranslator;
@@ -45,11 +45,11 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private string _lastGeneratedString = string.Empty;
 
     // Data sources for top language (learning target)
-    private Lumina.Excel.ExcelSheet<Action>? _topLuminaSheet;
+    private Lumina.Excel.ExcelSheet<ActionSheet>? _topLuminaSheet;
     private Dictionary<uint, string>? _topExternalMap;
 
     // Data sources for bottom language (native/reference)
-    private Lumina.Excel.ExcelSheet<Action>? _bottomLuminaSheet;
+    private Lumina.Excel.ExcelSheet<ActionSheet>? _bottomLuminaSheet;
     private Dictionary<uint, string>? _bottomExternalMap;
 
     // Window system for configuration UI
@@ -124,7 +124,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void LoadLanguageData(
         GameLanguage language,
-        out Lumina.Excel.ExcelSheet<Action>? luminaSheet,
+        out Lumina.Excel.ExcelSheet<ActionSheet>? luminaSheet,
         out Dictionary<uint, string>? externalMap)
     {
         luminaSheet = null;
@@ -133,16 +133,16 @@ public sealed unsafe class Plugin : IDalamudPlugin
         switch (language)
         {
             case GameLanguage.English:
-                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.English);
+                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.English);
                 break;
             case GameLanguage.Japanese:
-                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.Japanese);
+                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.Japanese);
                 break;
             case GameLanguage.German:
-                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.German);
+                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.German);
                 break;
             case GameLanguage.French:
-                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.French);
+                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.French);
                 break;
             case GameLanguage.ChineseTraditional:
                 externalMap = LoadChineseData();
@@ -269,7 +269,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private string GetActionName(
         uint actionId,
-        Lumina.Excel.ExcelSheet<Action>? luminaSheet,
+        Lumina.Excel.ExcelSheet<ActionSheet>? luminaSheet,
         Dictionary<uint, string>? externalMap)
     {
         // Check external data first (Chinese)
