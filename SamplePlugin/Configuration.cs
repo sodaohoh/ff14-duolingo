@@ -4,15 +4,22 @@ using System;
 
 namespace SamplePlugin;
 
+public enum TargetLanguage
+{
+    English,
+    Japanese,
+    ChineseTraditional
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 0;
+    public int Version { get; set; } = 1;
 
-    public bool IsConfigWindowMovable { get; set; } = true;
-    public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
+    public TargetLanguage TargetLanguage { get; set; } = TargetLanguage.English;
 
-    // the below exist just to make saving less cumbersome
+    public int CastBarHeight { get; set; } = 44; // 可調整的高度
+
     public void Save()
     {
         Plugin.PluginInterface.SavePluginConfig(this);

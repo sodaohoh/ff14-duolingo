@@ -8,51 +8,73 @@ namespace SamplePlugin.Windows;
 public class ConfigWindow : Window, IDisposable
 {
     private Configuration Configuration;
+    private Plugin Plugin; // 引用 Plugin 以便通知它重載資料
 
-    // We give this window a constant ID using ###
-    // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
-    // and the window ID will always be "###XYZ counter window" for ImGui
-    public ConfigWindow(Plugin plugin) : base("A Wonderful Configuration Window###With a constant ID")
+    public ConfigWindow(Plugin plugin) : base(
+        "Dual Translation Config###NativeCastBarConfig",
+        ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse)
     {
-        Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
-                ImGuiWindowFlags.NoScrollWithMouse;
-
-        Size = new Vector2(232, 90);
-        SizeCondition = ImGuiCond.Always;
-
-        Configuration = plugin.Configuration;
+        this.Plugin = plugin;
+        this.Configuration = plugin.Configuration;
     }
 
     public void Dispose() { }
 
-    public override void PreDraw()
-    {
-        // Flags must be added or removed before Draw() is being called, or they won't apply
-        if (Configuration.IsConfigWindowMovable)
-        {
-            Flags &= ~ImGuiWindowFlags.NoMove;
-        }
-        else
-        {
-            Flags |= ImGuiWindowFlags.NoMove;
-        }
-    }
-
     public override void Draw()
     {
-        // can't ref a property, so use a local copy
-        var configValue = Configuration.SomePropertyToBeSavedAndWithADefault;
-        if (ImGui.Checkbox("Random Config Bool1123", ref configValue))
+        ImGui.Text("Target Language Settings");
+        ImGui.Separator();
+
+        ImGui.Spacing();
+
+        // 1. 語言選擇下拉選單
+        var currentLang = Configuration.TargetLanguage;
+        ImGui.SetNextItemWidth(200);
+
+        if (ImGui.BeginCombo("Language", currentLang.ToString()))
         {
-            Configuration.SomePropertyToBeSavedAndWithADefault = configValue;
-            // can save immediately on change, if you don't want to provide a "Save and Close" button
-            Configuration.Save();
+            foreach (var lang in Enum.GetValues<TargetLanguage>())
+            {
+                if (ImGui.Selectable(lang.ToString(), lang == currentLang))
+                {
+                    Configuration.TargetLanguage = lang;
+                    Configuration.Save();
+
+                    // 當設定改變時，通知 Plugin 重新載入資料
+                    Plugin.ReloadDataSources();
+                }
+            }
+            ImGui.EndCombo();
         }
 
-        var movable = Configuration.IsConfigWindowMovable;
-        if (ImGui.Checkbox("Movable Config Window", ref movable))
+        // 2. 顯示目前的狀態資訊
+        ImGui.Spacing();
+        if (Configuration.TargetLanguage == TargetLanguage.ChineseTraditional)
         {
-            Configuration.IsConfigWindowMovable = movable;
+            if (Plugin.IsChineseDataLoaded)
+            {
+                ImGui.TextColored(new Vector4(0, 1, 0, 1), "✓ Traditional Chinese Data Loaded");
+                ImGui.TextDisabled($"Source: {Plugin.ChineseDataSource}");
+            }
+            else
+            {
+                ImGui.TextColored(new Vector4(1, 0, 0, 1), "✗ Data Missing");
+                if (ImGui.Button("Try Download Update"))
+                {
+                    // 手動觸發更新
+                    Plugin.CheckAndDownloadChineseData(true);
+                }
+            }
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+
+        // 其他設定 (例如高度調整)
+        var height = Configuration.CastBarHeight;
+        if (ImGui.SliderInt("CastBar Height", ref height, 30, 60))
+        {
+            Configuration.CastBarHeight = height;
             Configuration.Save();
         }
     }

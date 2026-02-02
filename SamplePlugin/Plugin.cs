@@ -3,6 +3,8 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -10,6 +12,9 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Lumina.Excel.GeneratedSheets;
+using Newtonsoft.Json;
+using Dalamud.Interface.Windowing; // Needed if you want to draw config UI
 
 namespace SamplePlugin;
 
@@ -22,150 +27,204 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     public Configuration Configuration { get; init; }
 
-    // We keep a reference to the last string we allocated to free it later
-    // to avoid memory leaks in unmanaged memory.
+    // Memory Management
     private IntPtr _lastAllocatedStringPtr = IntPtr.Zero;
     private string _lastGeneratedString = string.Empty;
+
+    // Data Sources
+    private Lumina.Excel.ExcelSheet<Action>? _luminaActionSheet;
+    private Dictionary<uint, string>? _externalActionMap;
 
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
-        // Register the PreDraw listener for the 3 potential cast bar addons
+        // Initialize Data based on Config
+        ReloadDataSources();
+
+        // Register Hooks
         AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "_TargetInfo", OnAddonPreDraw);
         AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "_TargetInfoCastBar", OnAddonPreDraw);
         AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "_FocusTargetInfo", OnAddonPreDraw);
+
+        // Register UI for settings
+        PluginInterface.UiBuilder.Draw += DrawConfigUI;
+        PluginInterface.UiBuilder.OpenConfigUi += () => _isConfigOpen = true;
     }
 
     public void Dispose()
     {
+        PluginInterface.UiBuilder.Draw -= DrawConfigUI;
         AddonLifecycle.UnregisterListener(OnAddonPreDraw);
         FreeLastString();
     }
+
+    // --- Configuration UI (Simple ImGui wrapper) ---
+    private bool _isConfigOpen = false;
+    private void DrawConfigUI()
+    {
+        if (!_isConfigOpen) return;
+
+        if (ImGuiNET.ImGui.Begin("Translation Config", ref _isConfigOpen, ImGuiNET.ImGuiWindowFlags.AlwaysAutoResize))
+        {
+            ImGuiNET.ImGui.Text("Select Target Language:");
+
+            var currentLang = Configuration.TargetLanguage;
+            if (ImGuiNET.ImGui.BeginCombo("Language", currentLang.ToString()))
+            {
+                foreach (var lang in Enum.GetValues<TargetLanguage>())
+                {
+                    if (ImGuiNET.ImGui.Selectable(lang.ToString(), lang == currentLang))
+                    {
+                        Configuration.TargetLanguage = lang;
+                        Configuration.Save();
+                        ReloadDataSources(); // Reload data immediately on change
+                    }
+                }
+                ImGuiNET.ImGui.EndCombo();
+            }
+
+            ImGuiNET.ImGui.TextDisabled("Note: 'ChineseTraditional' requires actions_zhtw.json");
+            ImGuiNET.ImGui.End();
+        }
+    }
+
+    // --- Data Management ---
+    private void ReloadDataSources()
+    {
+        // Clear existing data
+        _luminaActionSheet = null;
+        _externalActionMap = null;
+
+        try
+        {
+            switch (Configuration.TargetLanguage)
+            {
+                case TargetLanguage.English:
+                    _luminaActionSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.English);
+                    break;
+                case TargetLanguage.Japanese:
+                    _luminaActionSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.Japanese);
+                    break;
+                case TargetLanguage.German:
+                    _luminaActionSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.German);
+                    break;
+                case TargetLanguage.French:
+                    _luminaActionSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.French);
+                    break;
+                case TargetLanguage.ChineseTraditional:
+                    LoadJsonData("actions_zhtw.json");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginInterface.UiBuilder.AddNotification($"Failed to load language: {ex.Message}", "Translation Plugin", Dalamud.Interface.ImGuiNotification.NotificationType.Error);
+        }
+    }
+
+    private void LoadJsonData(string filename)
+    {
+        var path = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, filename);
+        if (File.Exists(path))
+        {
+            var json = File.ReadAllText(path);
+            _externalActionMap = JsonConvert.DeserializeObject<Dictionary<uint, string>>(json);
+        }
+        else
+        {
+            PluginInterface.UiBuilder.AddNotification($"Missing file: {filename}", "Translation Plugin", Dalamud.Interface.ImGuiNotification.NotificationType.Warning);
+        }
+    }
+
+    // --- Core Logic ---
 
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon;
         if (addon == null || !addon->IsVisible) return;
 
-        // 1. Identify which addon we are dealing with and select the correct target & Node ID
+        // 1. Identify Addon & Node
         IGameObject? target = null;
         uint textNodeId = 0;
 
         switch (args.AddonName)
         {
-            case "_TargetInfo":
-                // Standard Target Frame (Merged) -> Node 12 is usually the cast text
-                // We double check if the cast bar component inside it is actually active
-                // But specifically for text modification, we just check if the node exists.
-                target = TargetManager.Target;
-                textNodeId = 12;
-                break;
-
-            case "_TargetInfoCastBar":
-                // Split Target Cast Bar -> Node 4
-                target = TargetManager.Target;
-                textNodeId = 4;
-                break;
-
-            case "_FocusTargetInfo":
-                // Focus Target -> Node 5
-                target = TargetManager.FocusTarget;
-                textNodeId = 5;
-                break;
+            case "_TargetInfo": target = TargetManager.Target; textNodeId = 12; break;
+            case "_TargetInfoCastBar": target = TargetManager.Target; textNodeId = 4; break;
+            case "_FocusTargetInfo": target = TargetManager.FocusTarget; textNodeId = 5; break;
         }
 
         if (target is not IBattleChara battleChara || !battleChara.IsCasting) return;
 
-        // 2. Get the specific text node
+        // 2. Get Node
         var textNode = GetTextNodeById(addon, textNodeId);
         if (textNode == null) return;
 
-        // 3. Get the current original text (Japanese/Game Language)
-        // We read what the game thinks the text should be.
+        // 3. Get Original Text
         var originalText = Marshal.PtrToStringUTF8((IntPtr)textNode->NodeText.StringPtr);
         if (string.IsNullOrEmpty(originalText)) return;
 
-        // 4. Check if we already modified it to avoid flicker/infinite loops
-        // If the text currently in the node matches what we generated last frame, don't touch it.
-        // This is crucial for performance.
+        // 4. Cache Check (Performance)
         if (originalText == _lastGeneratedString)
         {
-            // Ensure height is still correct (game might reset it)
-            if (textNode->AtkResNode.Height != 40) textNode->AtkResNode.SetHeight(40);
+            // Enforce height
+            if (textNode->AtkResNode.Height != 44) textNode->AtkResNode.SetHeight(44);
             return;
         }
 
-        // 5. If the text is "pure" (not modified yet), let's translate it.
-        // But wait! If the game updates the text to "Fire IV", our check above (originalText == _lastGeneratedString) fails.
-        // So we proceed to generate the new string.
+        // 5. Lookup Translation
+        string translatedName = GetTranslatedActionName(battleChara.CastActionId);
 
-        // Get English name from Excel
-        var englishName = GetEnglishActionName(battleChara.CastActionId);
+        // If translation missing or same as original, skip
+        if (string.IsNullOrEmpty(translatedName) || originalText.Contains(translatedName)) return;
 
-        // If english name is missing or same as original, do nothing (or maybe just keep original)
-        if (string.IsNullOrEmpty(englishName) || originalText.Contains(englishName)) return;
-
-        // 6. Construct the new bilingual string
-        // Format: English \n Japanese
-        var newText = $"{englishName}\n{originalText}";
-
-        // 7. Write to memory safely
+        // 6. Combine & Write
+        var newText = $"{translatedName}\n{originalText}";
         SetNodeTextSafe(textNode, newText);
 
-        // 8. Adjust Layout
-        // The default height is usually around 20-24. We need more for 2 lines.
-        if (textNode->AtkResNode.Height < 40)
+        // 7. Adjust Layout
+        if (textNode->AtkResNode.Height < 44)
         {
-            textNode->AtkResNode.SetHeight(40);
-            // Optional: Adjust width or position if needed
-            // textNode->AtkResNode.SetWidth(200);
+            textNode->AtkResNode.SetHeight(44);
+        }
+    }
+
+    private string GetTranslatedActionName(uint actionId)
+    {
+        // Strategy: Check Dictionary first (if loaded), then check Lumina (if loaded)
+
+        // Case 1: External JSON (Chinese)
+        if (_externalActionMap != null)
+        {
+            return _externalActionMap.TryGetValue(actionId, out var name) ? name : string.Empty;
         }
 
-        // Optional: Adjust Line Spacing if the font supports it, or use SetScale if text is too big
-        // textNode->LineSpacing = 20;
+        // Case 2: Internal Game Data (EN/JA/DE/FR)
+        if (_luminaActionSheet != null)
+        {
+            var row = _luminaActionSheet.GetRow(actionId);
+            return row?.Name.RawString ?? string.Empty;
+        }
+
+        return string.Empty;
     }
 
-    private string GetEnglishActionName(uint actionId)
-    {
-        // Using Lumina to fetch the English sheet
-        var actionSheet = DataManager.Excel.GetSheet<Lumina.Excel.GeneratedSheets.Action>(Lumina.Data.Language.English);
-        var action = actionSheet?.GetRow(actionId);
-        return action?.Name.RawString ?? string.Empty;
-    }
-
-    // Helper to find a TextNode by ID safely
     private AtkTextNode* GetTextNodeById(AtkUnitBase* addon, uint nodeId)
     {
-        // We use GetNodeById which returns AtkResNode*, then cast to AtkTextNode*
-        // Check bounds based on SimpleTweaks logic
         if (addon->UldManager.NodeListCount <= nodeId) return null;
-
         var node = addon->GetNodeById(nodeId);
-        if (node == null) return null;
-
-        // Ensure it is actually a text node (Type 3 usually)
-        if (node->Type != NodeType.Text) return null;
-
+        if (node == null || node->Type != NodeType.Text) return null;
         return (AtkTextNode*)node;
     }
 
-    // Safe memory setting for AtkTextNode
     private void SetNodeTextSafe(AtkTextNode* node, string text)
     {
-        // 1. Free previous string to avoid leaks
         FreeLastString();
-
-        // 2. Allocate new unmanaged memory for the string
-        // FFXIV uses UTF-8 for UI text
-        byte[] stringBytes = Encoding.UTF8.GetBytes(text + "\0"); // Null-terminated
+        byte[] stringBytes = Encoding.UTF8.GetBytes(text + "\0");
         _lastAllocatedStringPtr = Marshal.AllocHGlobal(stringBytes.Length);
         Marshal.Copy(stringBytes, 0, _lastAllocatedStringPtr, stringBytes.Length);
-
-        // 3. Point the node to our memory
         node->SetText((byte*)_lastAllocatedStringPtr);
-
-        // 4. Cache the string so we know we did this
         _lastGeneratedString = text;
     }
 
