@@ -28,22 +28,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Download Dalamud
-        run: |
-          # Download Dalamud to a known location
-          $dalamudPath = "${{ github.workspace }}\dalamud"
-          New-Item -ItemType Directory -Force -Path $dalamudPath
-
-          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
-          Expand-Archive -Path latest.zip -DestinationPath $dalamudPath -Force
-
-          # Show what was downloaded
-          Write-Host "Dalamud contents:"
-          Get-ChildItem -Path $dalamudPath -Recurse -Depth 2 | Select-Object FullName
-
-          # Set environment variable for MSBuild
-          echo "DALAMUD_HOME=$dalamudPath" >> $env:GITHUB_ENV
-
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_NAME }}.sln
 

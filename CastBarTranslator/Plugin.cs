@@ -11,7 +11,7 @@ using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.Windowing;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using Newtonsoft.Json;
 using CastBarTranslator.Windows;
 
@@ -133,16 +133,16 @@ public sealed unsafe class Plugin : IDalamudPlugin
         switch (language)
         {
             case GameLanguage.English:
-                luminaSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.English);
+                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.English);
                 break;
             case GameLanguage.Japanese:
-                luminaSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.Japanese);
+                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.Japanese);
                 break;
             case GameLanguage.German:
-                luminaSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.German);
+                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.German);
                 break;
             case GameLanguage.French:
-                luminaSheet = DataManager.Excel.GetSheet<Action>(Lumina.Data.Language.French);
+                luminaSheet = DataManager.GetExcelSheet<Action>(Dalamud.Game.ClientLanguage.French);
                 break;
             case GameLanguage.ChineseTraditional:
                 externalMap = LoadChineseData();
@@ -281,8 +281,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // Check game data (EN/JP/DE/FR)
         if (luminaSheet != null)
         {
-            var row = luminaSheet.GetRow(actionId);
-            return row?.Name.RawString ?? string.Empty;
+            var row = luminaSheet.GetRowOrDefault(actionId);
+            return row.Name.ExtractText();
         }
 
         return string.Empty;
