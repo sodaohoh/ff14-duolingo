@@ -206,7 +206,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
-        var addon = (AtkUnitBase*)args.Addon.Value;
+        var addon = (AtkUnitBase*)(nint)args.Addon;
         if (addon == null || !addon->IsVisible)
             return;
 
@@ -286,11 +286,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }
 
         // Check game data (EN/JP/DE/FR)
-        if (luminaSheet != null)
+        if (luminaSheet != null && luminaSheet.TryGetRow(actionId, out var row))
         {
-            var row = luminaSheet.GetRowOrDefault(actionId);
-            if (row.RowId != 0)
-                return row.Name.ExtractText();
+            return row.Name.ExtractText();
         }
 
         return string.Empty;
