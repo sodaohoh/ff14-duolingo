@@ -46,6 +46,7 @@ jobs:
           path: |
             ${{ env.PLUGIN_NAME }}/bin/x64/Release/
             !${{ env.PLUGIN_NAME }}/bin/x64/Release/*.pdb
+            !${{ env.PLUGIN_NAME }}/bin/x64/Release/*.deps.json
           if-no-files-found: error
 
   release:
