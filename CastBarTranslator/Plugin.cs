@@ -256,8 +256,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (topName == bottomName)
             return;
 
-        // Combine names (top language on first line, bottom on second)
-        var newText = $"{topName}\n{bottomName}";
+        // Combine names - try different separators
+        // Game might use different newline character
+        var newText = $"{topName}\r\n{bottomName}";
 
         // Always set text (game resets it constantly)
         SetNodeText(textNode, newText);
