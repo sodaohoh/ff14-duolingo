@@ -74,10 +74,13 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // Initialize data based on config
         ReloadDataSources();
 
-        // Register cast bar hooks (PostDraw = every frame after game draws)
-        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfo, OnAddonPostDraw);
-        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfoCastBar, OnAddonPostDraw);
-        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonFocusTargetInfo, OnAddonPostDraw);
+        // Register cast bar hooks (both Pre and Post to ensure our text stays)
+        AddonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonTargetInfo, OnAddonDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonTargetInfoCastBar, OnAddonDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonFocusTargetInfo, OnAddonDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfo, OnAddonDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonTargetInfoCastBar, OnAddonDraw);
+        AddonLifecycle.RegisterListener(AddonEvent.PostDraw, AddonFocusTargetInfo, OnAddonDraw);
 
         // Register UI handlers
         PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -90,7 +93,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _windowSystem.RemoveAllWindows();
-        AddonLifecycle.UnregisterListener(OnAddonPostDraw);
+        AddonLifecycle.UnregisterListener(OnAddonDraw);
         FreeLastString();
     }
 
@@ -206,7 +209,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
         return directory != null ? Path.Combine(directory, ChineseDataFilename) : ChineseDataFilename;
     }
 
-    private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
+    private void OnAddonDraw(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)(nint)args.Addon;
         if (addon == null || !addon->IsVisible)
