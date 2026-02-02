@@ -259,8 +259,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
         // Always set text (game resets it constantly)
         SetNodeText(textNode, newText);
 
-        // Enable multiline flag so newlines render properly
-        textNode->TextFlags |= TextFlags.MultiLine;
+        // Enable multiline and wordwrap flags for proper line breaking
+        textNode->TextFlags |= TextFlags.MultiLine | TextFlags.WordWrap;
 
         // Always adjust height for two-line display
         var castBarHeight = Configuration.CastBarHeight;
