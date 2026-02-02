@@ -13,6 +13,8 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.Windowing;
 using Newtonsoft.Json;
 using ActionSheet = Lumina.Excel.Sheets.Action;
+using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using CastBarTranslator.Windows;
 
 namespace CastBarTranslator;
@@ -43,7 +45,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     // Memory management for unmanaged string allocation
     private IntPtr _lastAllocatedStringPtr = IntPtr.Zero;
-    private string _lastGeneratedString = string.Empty;
+
+    // Track last processed action to avoid redundant updates
+    private uint _lastActionId = 0;
 
     // Data sources for top language (learning target)
     private Lumina.Excel.ExcelSheet<ActionSheet>? _topLuminaSheet;
@@ -251,11 +255,19 @@ public sealed unsafe class Plugin : IDalamudPlugin
         if (topName == bottomName)
             return;
 
-        // Combine names
-        var newText = $"{topName}\n{bottomName}";
+        // Check if we already set the text (avoid flickering)
+        var currentText = textNode->NodeText.ToString();
+        if (currentText.Contains(bottomName))
+            return; // Already has both languages
 
-        // Always update text (game may have reset it)
-        SetNodeTextSafe(textNode, newText);
+        // Combine names with SeString (FFXIV native text format)
+        var seString = new SeStringBuilder()
+            .AddText(topName)
+            .Add(new NewLinePayload())
+            .AddText(bottomName)
+            .Build();
+
+        SetNodeText(textNode, seString);
 
         // Adjust height for two-line display
         var castBarHeight = Configuration.CastBarHeight;
@@ -297,16 +309,19 @@ public sealed unsafe class Plugin : IDalamudPlugin
         return (AtkTextNode*)node;
     }
 
-    private void SetNodeTextSafe(AtkTextNode* node, string text)
+    private void SetNodeText(AtkTextNode* node, SeString seString)
     {
         FreeLastString();
 
-        var stringBytes = Encoding.UTF8.GetBytes(text + "\0");
-        _lastAllocatedStringPtr = Marshal.AllocHGlobal(stringBytes.Length);
-        Marshal.Copy(stringBytes, 0, _lastAllocatedStringPtr, stringBytes.Length);
+        var encoded = seString.Encode();
+        var bytes = new byte[encoded.Length + 1];
+        encoded.CopyTo(bytes, 0);
+        bytes[encoded.Length] = 0; // Null terminator
+
+        _lastAllocatedStringPtr = Marshal.AllocHGlobal(bytes.Length);
+        Marshal.Copy(bytes, 0, _lastAllocatedStringPtr, bytes.Length);
 
         node->SetText((byte*)_lastAllocatedStringPtr);
-        _lastGeneratedString = text;
     }
 
     private void FreeLastString()
