@@ -13,6 +13,9 @@ env:
   PLUGIN_NAME: CastBarTranslator
   SOLUTION_NAME: CastBarTranslator
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest

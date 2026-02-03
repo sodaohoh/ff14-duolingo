@@ -237,6 +237,9 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         if (languageMap != null && languageMap.TryGetValue(actionId, out var name))
         {
+            // Filter out reserved/internal action names
+            if (name.StartsWith("_rsv_"))
+                return string.Empty;
             return name;
         }
         return string.Empty;
