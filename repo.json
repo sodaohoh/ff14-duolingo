@@ -19,9 +19,9 @@
       "other"
     ],
     "DalamudApiLevel": 14,
-    "IconUrl": "https://raw.githubusercontent.com/your-username/CastBarTranslator/master/data/goat.png",
-    "DownloadLinkInstall": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip",
-    "DownloadLinkTesting": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip",
-    "DownloadLinkUpdate": "https://github.com/your-username/CastBarTranslator/releases/latest/download/CastBarTranslator.zip"
+    "IconUrl": "https://raw.githubusercontent.com/adcf3016/ff14-duolingo/master/data/goat.png",
+    "DownloadLinkInstall": "https://github.com/adcf3016/ff14-duolingo/releases/latest/download/CastBarTranslator.zip",
+    "DownloadLinkTesting": "https://github.com/adcf3016/ff14-duolingo/releases/latest/download/CastBarTranslator.zip",
+    "DownloadLinkUpdate": "https://github.com/adcf3016/ff14-duolingo/releases/latest/download/CastBarTranslator.zip"
   }
 ]
