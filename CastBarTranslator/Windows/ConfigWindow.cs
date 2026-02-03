@@ -26,8 +26,8 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Top language selection (learning target)
-        ImGui.Text("Top (Learning Target):");
+        // Top language selection (native/reference)
+        ImGui.Text("Top (Native/Reference):");
         var topLang = _configuration.TopLanguage;
         ImGui.SetNextItemWidth(200);
         if (ImGui.BeginCombo("##TopLanguage", topLang.ToString()))
@@ -46,8 +46,8 @@ public class ConfigWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        // Bottom language selection (native/reference)
-        ImGui.Text("Bottom (Native/Reference):");
+        // Bottom language selection (learning target)
+        ImGui.Text("Bottom (Learning Target):");
         var bottomLang = _configuration.BottomLanguage;
         ImGui.SetNextItemWidth(200);
         if (ImGui.BeginCombo("##BottomLanguage", bottomLang.ToString()))
@@ -86,28 +86,24 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Chinese data status
-        if (_configuration.TopLanguage == GameLanguage.ChineseTraditional ||
-            _configuration.BottomLanguage == GameLanguage.ChineseTraditional)
+        // Data status
+        if (_plugin.IsDataLoaded)
         {
-            if (_plugin.IsChineseDataLoaded)
-            {
-                ImGui.TextColored(new Vector4(0, 1, 0, 1), "Chinese Data: Loaded");
-            }
-            else
-            {
-                ImGui.TextColored(new Vector4(1, 0, 0, 1), "Chinese Data: Missing");
-            }
-
-            if (ImGui.Button("Reload Data"))
-            {
-                _plugin.CheckAndDownloadChineseData(true);
-            }
-
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Spacing();
+            ImGui.TextColored(new Vector4(0, 1, 0, 1), "Data: Loaded");
         }
+        else
+        {
+            ImGui.TextColored(new Vector4(1, 0, 0, 1), "Data: Missing");
+        }
+
+        if (ImGui.Button("Reload Data"))
+        {
+            _plugin.ReloadData(true);
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
 
         // Height adjustment
         var height = _configuration.CastBarHeight;

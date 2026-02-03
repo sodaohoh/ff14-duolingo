@@ -12,7 +12,6 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.Windowing;
 using Newtonsoft.Json;
-using ActionSheet = Lumina.Excel.Sheets.Action;
 using CastBarTranslator.Windows;
 
 namespace CastBarTranslator;
@@ -29,11 +28,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private const uint NodeIdTargetInfoCastBar = 4;
     private const uint NodeIdFocusTargetInfo = 5;
 
-    // Data file for Chinese Traditional translations
-    private const string ChineseDataFilename = "actions_zhtw.json";
+    // Data filenames for each language
+    private static readonly Dictionary<GameLanguage, string> DataFilenames = new()
+    {
+        { GameLanguage.English, "actions_en.json" },
+        { GameLanguage.Japanese, "actions_ja.json" },
+        { GameLanguage.German, "actions_de.json" },
+        { GameLanguage.French, "actions_fr.json" },
+        { GameLanguage.ChineseTraditional, "actions_zhtw.json" },
+    };
 
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
-    [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
@@ -44,21 +49,16 @@ public sealed unsafe class Plugin : IDalamudPlugin
     // Memory management for unmanaged string allocation
     private IntPtr _lastAllocatedStringPtr = IntPtr.Zero;
 
-    // Data sources for top language (learning target)
-    private Lumina.Excel.ExcelSheet<ActionSheet>? _topLuminaSheet;
-    private Dictionary<uint, string>? _topExternalMap;
-
-    // Data sources for bottom language (native/reference)
-    private Lumina.Excel.ExcelSheet<ActionSheet>? _bottomLuminaSheet;
-    private Dictionary<uint, string>? _bottomExternalMap;
+    // Data sources for languages (all loaded from JSON)
+    private Dictionary<uint, string>? _topLanguageMap;
+    private Dictionary<uint, string>? _bottomLanguageMap;
 
     // Window system for configuration UI
     private readonly WindowSystem _windowSystem = new("CastBarTranslator");
     private readonly ConfigWindow _configWindow;
 
     // Public properties for ConfigWindow to access data state
-    public bool IsChineseDataLoaded => _topExternalMap != null || _bottomExternalMap != null;
-    public string ChineseDataSource => GetChineseDataPath();
+    public bool IsDataLoaded => _topLanguageMap != null && _bottomLanguageMap != null;
 
     public Plugin()
     {
@@ -99,21 +99,17 @@ public sealed unsafe class Plugin : IDalamudPlugin
     /// </summary>
     public void ReloadDataSources()
     {
-        // Clear existing data
-        _topLuminaSheet = null;
-        _topExternalMap = null;
-        _bottomLuminaSheet = null;
-        _bottomExternalMap = null;
+        _topLanguageMap = null;
+        _bottomLanguageMap = null;
 
         try
         {
-            // Load top language (learning target)
-            LoadLanguageData(Configuration.TopLanguage, out _topLuminaSheet, out _topExternalMap);
+            _topLanguageMap = LoadLanguageData(Configuration.TopLanguage);
+            _bottomLanguageMap = LoadLanguageData(Configuration.BottomLanguage);
 
-            // Load bottom language (native/reference)
-            LoadLanguageData(Configuration.BottomLanguage, out _bottomLuminaSheet, out _bottomExternalMap);
-
-            Log.Information($"Loaded languages: {Configuration.TopLanguage} (top) / {Configuration.BottomLanguage} (bottom)");
+            var topCount = _topLanguageMap?.Count ?? 0;
+            var bottomCount = _bottomLanguageMap?.Count ?? 0;
+            Log.Information($"Loaded: {Configuration.TopLanguage} ({topCount} entries) / {Configuration.BottomLanguage} ({bottomCount} entries)");
         }
         catch (Exception ex)
         {
@@ -127,69 +123,45 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }
     }
 
-    private void LoadLanguageData(
-        GameLanguage language,
-        out Lumina.Excel.ExcelSheet<ActionSheet>? luminaSheet,
-        out Dictionary<uint, string>? externalMap)
+    private Dictionary<uint, string>? LoadLanguageData(GameLanguage language)
     {
-        luminaSheet = null;
-        externalMap = null;
-
-        switch (language)
+        if (!DataFilenames.TryGetValue(language, out var filename))
         {
-            case GameLanguage.English:
-                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.English);
-                break;
-            case GameLanguage.Japanese:
-                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.Japanese);
-                break;
-            case GameLanguage.German:
-                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.German);
-                break;
-            case GameLanguage.French:
-                luminaSheet = DataManager.GetExcelSheet<ActionSheet>(Dalamud.Game.ClientLanguage.French);
-                break;
-            case GameLanguage.ChineseTraditional:
-                externalMap = LoadChineseData();
-                break;
-        }
-    }
-
-    private Dictionary<uint, string>? LoadChineseData()
-    {
-        var directory = PluginInterface.AssemblyLocation.Directory?.FullName;
-        if (directory == null)
-        {
-            Log.Warning("Unable to determine plugin directory for Chinese data.");
+            Log.Warning($"No data file defined for language: {language}");
             return null;
         }
 
-        var path = Path.Combine(directory, ChineseDataFilename);
-        if (File.Exists(path))
+        var directory = PluginInterface.AssemblyLocation.Directory?.FullName;
+        if (directory == null)
         {
-            var json = File.ReadAllText(path);
-            return JsonConvert.DeserializeObject<Dictionary<uint, string>>(json);
+            Log.Warning("Unable to determine plugin directory.");
+            return null;
         }
-        else
+
+        var path = Path.Combine(directory, filename);
+        if (!File.Exists(path))
         {
-            Log.Warning($"Chinese data file not found: {path}");
+            Log.Warning($"Data file not found: {path}");
             NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
             {
-                Content = $"Missing file: {ChineseDataFilename}",
+                Content = $"Missing file: {filename}",
                 Title = "Cast Bar Translator",
                 Type = Dalamud.Interface.ImGuiNotification.NotificationType.Warning,
             });
             return null;
         }
+
+        var json = File.ReadAllText(path);
+        return JsonConvert.DeserializeObject<Dictionary<uint, string>>(json);
     }
 
     /// <summary>
-    /// Attempts to reload Chinese data from disk.
+    /// Reloads data from disk.
     /// </summary>
-    public void CheckAndDownloadChineseData(bool showNotification)
+    public void ReloadData(bool showNotification)
     {
         ReloadDataSources();
-        if (showNotification && IsChineseDataLoaded)
+        if (showNotification && IsDataLoaded)
         {
             NotificationManager.AddNotification(new Dalamud.Interface.ImGuiNotification.Notification
             {
@@ -198,12 +170,6 @@ public sealed unsafe class Plugin : IDalamudPlugin
                 Type = Dalamud.Interface.ImGuiNotification.NotificationType.Success,
             });
         }
-    }
-
-    private string GetChineseDataPath()
-    {
-        var directory = PluginInterface.AssemblyLocation.Directory?.FullName;
-        return directory != null ? Path.Combine(directory, ChineseDataFilename) : ChineseDataFilename;
     }
 
     private void OnAddonDraw(AddonEvent type, AddonArgs args)
@@ -242,8 +208,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
         // Get action names in both languages
         var actionId = battleChara.CastActionId;
-        var topName = GetActionName(actionId, _topLuminaSheet, _topExternalMap);
-        var bottomName = GetActionName(actionId, _bottomLuminaSheet, _bottomExternalMap);
+        var topName = GetActionName(actionId, _topLanguageMap);
+        var bottomName = GetActionName(actionId, _bottomLanguageMap);
 
         // Skip if either translation is missing
         if (string.IsNullOrEmpty(topName) || string.IsNullOrEmpty(bottomName))
@@ -267,23 +233,12 @@ public sealed unsafe class Plugin : IDalamudPlugin
         textNode->AtkResNode.SetHeight((ushort)castBarHeight);
     }
 
-    private string GetActionName(
-        uint actionId,
-        Lumina.Excel.ExcelSheet<ActionSheet>? luminaSheet,
-        Dictionary<uint, string>? externalMap)
+    private string GetActionName(uint actionId, Dictionary<uint, string>? languageMap)
     {
-        // Check external data first (Chinese)
-        if (externalMap != null)
+        if (languageMap != null && languageMap.TryGetValue(actionId, out var name))
         {
-            return externalMap.TryGetValue(actionId, out var name) ? name : string.Empty;
+            return name;
         }
-
-        // Check game data (EN/JP/DE/FR)
-        if (luminaSheet != null && luminaSheet.TryGetRow(actionId, out var row))
-        {
-            return row.Name.ExtractText();
-        }
-
         return string.Empty;
     }
 
