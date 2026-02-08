@@ -79,7 +79,7 @@ Output: `CastBarTranslator/bin/x64/Debug/CastBarTranslator.dll`
 3. Scroll down to **Custom Plugin Repositories**
 4. Add this URL:
    ```
-   https://raw.githubusercontent.com/your-username/CastBarTranslator/master/repo.json
+   https://raw.githubusercontent.com/sodaohoh/ff14-duolingo/refs/heads/master/repo.json
    ```
 5. Save and close settings
 6. Open Plugin Installer with `/xlplugins`
