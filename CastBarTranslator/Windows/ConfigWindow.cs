@@ -26,8 +26,8 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Top language selection (native/reference)
-        ImGui.Text("Top (Native/Reference):");
+        // Top language selection (learning target)
+        ImGui.Text("Top (Learning Target):");
         var topLang = _configuration.TopLanguage;
         ImGui.SetNextItemWidth(200);
         if (ImGui.BeginCombo("##TopLanguage", topLang.ToString()))
@@ -46,8 +46,8 @@ public class ConfigWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        // Bottom language selection (learning target)
-        ImGui.Text("Bottom (Learning Target):");
+        // Bottom language selection (native/reference)
+        ImGui.Text("Bottom (Native/Reference):");
         var bottomLang = _configuration.BottomLanguage;
         ImGui.SetNextItemWidth(200);
         if (ImGui.BeginCombo("##BottomLanguage", bottomLang.ToString()))
