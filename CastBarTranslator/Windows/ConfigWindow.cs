@@ -105,14 +105,6 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Height adjustment
-        var height = _configuration.CastBarHeight;
-        if (ImGui.SliderInt("Cast Bar Height", ref height, 30, 60))
-        {
-            _configuration.CastBarHeight = height;
-            _configuration.Save();
-        }
-        ImGui.TextDisabled("Adjusts height for two-line display.");
 
         // Preview
         ImGui.Spacing();

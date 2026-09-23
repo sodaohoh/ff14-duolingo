@@ -6,7 +6,7 @@
     "Description": "Displays bilingual action names on cast bars. Select any two languages (English, Japanese, German, French, Traditional Chinese) to show on target cast bars - perfect for learning skill names in another language.",
     "Changelog": "Updated for Dalamud API 15.",
     "InternalName": "CastBarTranslator",
-    "AssemblyVersion": "0.0.0.2",
+    "AssemblyVersion": "0.0.0.3",
     "RepoUrl": "https://github.com/sodaohoh/ff14-duolingo",
     "ApplicableVersion": "any",
     "Tags": [

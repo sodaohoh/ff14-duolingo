@@ -21,6 +21,25 @@ public sealed class TranslationServiceTests
     }
 
     [Fact]
+    public void AdditionalLanguageCanBeLoadedForProductionSecondNode()
+    {
+        using var fixture = new TranslationFixture();
+        fixture.Write(GameLanguage.Japanese, "{\"123\":\"ファイジャ\"}");
+        fixture.Write(GameLanguage.English, "{\"123\":\"Fire IV\"}");
+        fixture.Write(GameLanguage.ChineseTraditional, "{\"123\":\"烈火四\"}");
+
+        var service = fixture.CreateService();
+        service.Reload(
+            GameLanguage.Japanese,
+            GameLanguage.English,
+            GameLanguage.ChineseTraditional);
+
+        Assert.Equal(
+            "烈火四",
+            service.GetActionName(123, GameLanguage.ChineseTraditional));
+    }
+
+    [Fact]
     public void MissingActionIdReturnsNoResult()
     {
         using var fixture = new TranslationFixture();

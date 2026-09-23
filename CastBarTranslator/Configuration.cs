@@ -20,7 +20,8 @@ public enum GameLanguage
 public class Configuration : IPluginConfiguration
 {
     /// <summary>
-    /// Default height for the cast bar text node when displaying two lines.
+    /// Legacy default retained for deserializing existing configurations.
+    /// Runtime layout ignores this value.
     /// </summary>
     public const int DefaultCastBarHeight = 44;
 
@@ -37,7 +38,7 @@ public class Configuration : IPluginConfiguration
     public GameLanguage BottomLanguage { get; set; } = GameLanguage.English;
 
     /// <summary>
-    /// Adjustable height for the cast bar text display.
+    /// Legacy setting retained for config compatibility. Runtime ignores it.
     /// </summary>
     public int CastBarHeight { get; set; } = DefaultCastBarHeight;
 

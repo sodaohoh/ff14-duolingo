@@ -30,7 +30,10 @@ public sealed class TranslationService
 
     public bool IsLoaded => _topLanguage.HasValue && _bottomLanguage.HasValue;
 
-    public (int TopCount, int BottomCount) Reload(GameLanguage topLanguage, GameLanguage bottomLanguage)
+    public (int TopCount, int BottomCount) Reload(
+        GameLanguage topLanguage,
+        GameLanguage bottomLanguage,
+        params GameLanguage[] additionalLanguages)
     {
         _loadedLanguages = new Dictionary<GameLanguage, Dictionary<uint, string>>();
         _topLanguage = null;
@@ -43,6 +46,12 @@ public sealed class TranslationService
             [topLanguage] = topMap,
             [bottomLanguage] = bottomMap,
         };
+
+        foreach (var language in additionalLanguages)
+        {
+            if (!loadedLanguages.ContainsKey(language))
+                loadedLanguages[language] = LoadLanguageData(language);
+        }
 
         _loadedLanguages = loadedLanguages;
         _topLanguage = topLanguage;
