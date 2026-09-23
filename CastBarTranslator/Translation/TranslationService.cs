@@ -20,47 +20,23 @@ public sealed class TranslationService
     private readonly string? _dataDirectory;
     private IReadOnlyDictionary<GameLanguage, Dictionary<uint, string>> _loadedLanguages =
         new Dictionary<GameLanguage, Dictionary<uint, string>>();
-    private GameLanguage? _topLanguage;
-    private GameLanguage? _bottomLanguage;
 
     public TranslationService(string? dataDirectory)
     {
         _dataDirectory = dataDirectory;
     }
 
-    public bool IsLoaded => _topLanguage.HasValue && _bottomLanguage.HasValue;
+    public bool IsLoaded => _loadedLanguages.Count > 0;
 
-    public (int TopCount, int BottomCount) Reload(
-        GameLanguage topLanguage,
-        GameLanguage bottomLanguage,
-        params GameLanguage[] additionalLanguages)
+    public int Reload(GameLanguage language)
     {
         _loadedLanguages = new Dictionary<GameLanguage, Dictionary<uint, string>>();
-        _topLanguage = null;
-        _bottomLanguage = null;
-
-        var topMap = LoadLanguageData(topLanguage);
-
-        var bottomMap = bottomLanguage == topLanguage
-            ? topMap
-            : LoadLanguageData(bottomLanguage);
-        var loadedLanguages = new Dictionary<GameLanguage, Dictionary<uint, string>>
+        var languageMap = LoadLanguageData(language);
+        _loadedLanguages = new Dictionary<GameLanguage, Dictionary<uint, string>>
         {
-            [topLanguage] = topMap,
-            [bottomLanguage] = bottomMap,
+            [language] = languageMap,
         };
-
-        foreach (var language in additionalLanguages)
-        {
-            if (!loadedLanguages.ContainsKey(language))
-                loadedLanguages[language] = LoadLanguageData(language);
-        }
-
-        _loadedLanguages = loadedLanguages;
-        _topLanguage = topLanguage;
-        _bottomLanguage = bottomLanguage;
-
-        return (topMap.Count, bottomMap.Count);
+        return languageMap.Count;
     }
 
     public string? GetActionName(uint actionId, GameLanguage language)

@@ -6,34 +6,23 @@ namespace CastBarTranslator.Tests;
 
 public sealed class TranslationServiceTests
 {
-    [Fact]
-    public void ExistingActionIdReturnsExpectedText()
+    [Theory]
+    [InlineData(GameLanguage.English, "Fire IV")]
+    [InlineData(GameLanguage.Japanese, "ファイジャ")]
+    [InlineData(GameLanguage.German, "Feuga")]
+    [InlineData(GameLanguage.French, "Brasier IV")]
+    [InlineData(GameLanguage.ChineseTraditional, "烈火四")]
+    public void ConfiguredLanguageLoadsForSecondLine(
+        GameLanguage language,
+        string expectedName)
     {
         using var fixture = new TranslationFixture();
-        fixture.Write(GameLanguage.Japanese, "{\"123\":\"ファイジャ\"}");
-        fixture.Write(GameLanguage.English, "{\"123\":\"Fire IV\"}");
+        fixture.Write(language, $"{{\"123\":\"{expectedName}\"}}");
 
         var service = fixture.CreateService();
-        service.Reload(GameLanguage.Japanese, GameLanguage.English);
+        service.Reload(language);
 
-        Assert.Equal("ファイジャ", service.GetActionName(123, GameLanguage.Japanese));
-        Assert.Equal("Fire IV", service.GetActionName(123, GameLanguage.English));
-    }
-
-    [Fact]
-    public void TraditionalChineseLoadsWithoutLegacyLanguageSelections()
-    {
-        using var fixture = new TranslationFixture();
-        fixture.Write(GameLanguage.ChineseTraditional, "{\"123\":\"烈火四\"}");
-
-        var service = fixture.CreateService();
-        service.Reload(
-            GameLanguage.ChineseTraditional,
-            GameLanguage.ChineseTraditional);
-
-        Assert.Equal(
-            "烈火四",
-            service.GetActionName(123, GameLanguage.ChineseTraditional));
+        Assert.Equal(expectedName, service.GetActionName(123, language));
     }
 
     [Fact]
@@ -41,10 +30,9 @@ public sealed class TranslationServiceTests
     {
         using var fixture = new TranslationFixture();
         fixture.Write(GameLanguage.Japanese, "{\"123\":\"ファイジャ\"}");
-        fixture.Write(GameLanguage.English, "{\"123\":\"Fire IV\"}");
 
         var service = fixture.CreateService();
-        service.Reload(GameLanguage.Japanese, GameLanguage.English);
+        service.Reload(GameLanguage.Japanese);
 
         Assert.Null(service.GetActionName(999, GameLanguage.Japanese));
     }
@@ -54,10 +42,9 @@ public sealed class TranslationServiceTests
     {
         using var fixture = new TranslationFixture();
         fixture.Write(GameLanguage.Japanese, "{\"123\":\"_rsv_internal\"}");
-        fixture.Write(GameLanguage.English, "{\"123\":\"Fire IV\"}");
 
         var service = fixture.CreateService();
-        service.Reload(GameLanguage.Japanese, GameLanguage.English);
+        service.Reload(GameLanguage.Japanese);
 
         Assert.Null(service.GetActionName(123, GameLanguage.Japanese));
     }
@@ -67,14 +54,13 @@ public sealed class TranslationServiceTests
     {
         using var fixture = new TranslationFixture();
         fixture.Write(GameLanguage.Japanese, "{\"123\":\"旧名称\"}");
-        fixture.Write(GameLanguage.English, "{\"123\":\"Old Name\"}");
 
         var service = fixture.CreateService();
-        service.Reload(GameLanguage.Japanese, GameLanguage.English);
+        service.Reload(GameLanguage.Japanese);
         Assert.Equal("旧名称", service.GetActionName(123, GameLanguage.Japanese));
 
         fixture.Write(GameLanguage.Japanese, "{\"123\":\"新名称\"}");
-        service.Reload(GameLanguage.Japanese, GameLanguage.English);
+        service.Reload(GameLanguage.Japanese);
 
         Assert.Equal("新名称", service.GetActionName(123, GameLanguage.Japanese));
     }

@@ -2,9 +2,9 @@
   {
     "Author": "Soda Ohoh",
     "Name": "Cast Bar Translator",
-    "Punchline": "Traditional Chinese action names beneath native FFXIV cast text.",
-    "Description": "Displays native game cast text with its Traditional Chinese action name beneath it on target and focus target cast bars. Native cast text remains unchanged.",
-    "Changelog": "Added a separate Traditional Chinese line for Target and Focus Target cast bars.",
+    "Punchline": "Native cast text with a configurable translated second line.",
+    "Description": "Displays the game's native cast name with a configurable translated second line on target and focus target cast bars. Choose English, Japanese, German, French, or Traditional Chinese for the plugin-rendered line.",
+    "Changelog": "Added a configurable translated second line while preserving native cast text.",
     "InternalName": "CastBarTranslator",
     "AssemblyVersion": "0.0.0.3",
     "RepoUrl": "https://github.com/sodaohoh/ff14-duolingo",

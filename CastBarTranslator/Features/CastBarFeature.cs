@@ -45,6 +45,7 @@ public sealed unsafe class CastBarFeature : IDisposable
     private readonly IAddonLifecycle _addonLifecycle;
     private readonly IGameGui _gameGui;
     private readonly TranslationService _translationService;
+    private readonly Configuration _configuration;
     private readonly IPluginLog _log;
     private readonly Dictionary<nint, SecondNodeState> _secondNodes = new();
 
@@ -59,7 +60,7 @@ public sealed unsafe class CastBarFeature : IDisposable
         _targetManager = targetManager;
         _addonLifecycle = addonLifecycle;
         _gameGui = gameGui;
-        _ = configuration;
+        _configuration = configuration;
         _translationService = translationService;
         _log = log;
 
@@ -189,12 +190,13 @@ public sealed unsafe class CastBarFeature : IDisposable
         pluginNode->AtkResNode.Y = targetY;
 
         var battleChara = target as IBattleChara;
-        var chineseName = battleChara?.IsCasting == true
+
+        var translatedName = battleChara?.IsCasting == true
             ? _translationService.GetActionName(
                 battleChara.CastActionId,
-                GameLanguage.ChineseTraditional)
+                _configuration.BottomLanguage)
             : null;
-        var shouldShow = !string.IsNullOrEmpty(chineseName) &&
+        var shouldShow = !string.IsNullOrEmpty(translatedName) &&
                          battleChara?.IsCasting == true &&
                          nativeNode->AtkResNode.IsVisible();
         var visibilityChanged = SetSecondNodeVisibility(state, shouldShow);
@@ -210,16 +212,16 @@ public sealed unsafe class CastBarFeature : IDisposable
             return;
         }
 
-        var effectiveChineseName = chineseName!;
+        var effectiveText = translatedName!;
         var fittedFontSize = CastBarFontSizeFitter.SelectFontSize(
             nativeNode->FontSize,
             nativeNode->AtkResNode.Width,
-            fontSize => MeasureTextWidth(pluginNode, effectiveChineseName, fontSize));
+            fontSize => MeasureTextWidth(pluginNode, effectiveText, fontSize));
         var fontSizeChanged = state.LastAppliedFontSize != fittedFontSize;
         pluginNode->FontSize = fittedFontSize;
         state.LastAppliedFontSize = fittedFontSize;
 
-        var textChanged = SetSecondNodeText(state, effectiveChineseName);
+        var textChanged = SetSecondNodeText(state, effectiveText);
         if (fontSizeChanged || textChanged || positionChanged || visibilityChanged)
         {
             pluginNode->AtkResNode.IsDirty = true;

@@ -62,12 +62,10 @@ public sealed class Plugin : IDalamudPlugin
     {
         try
         {
-            var counts = _translationService.Reload(
-                GameLanguage.ChineseTraditional,
-                GameLanguage.ChineseTraditional);
+            var entryCount = _translationService.Reload(Configuration.BottomLanguage);
 
             Log.Information(
-                $"Loaded Traditional Chinese ({counts.TopCount} entries)");
+                $"Loaded {Configuration.BottomLanguage} ({entryCount} entries)");
         }
         catch (FileNotFoundException ex)
         {

@@ -33,7 +33,7 @@ public class Configuration : IPluginConfiguration
     public GameLanguage TopLanguage { get; set; } = GameLanguage.Japanese;
 
     /// <summary>
-    /// Legacy field retained for saved-config compatibility. Runtime ignores it.
+    /// Translation language used for the plugin-owned second line.
     /// </summary>
     public GameLanguage BottomLanguage { get; set; } = GameLanguage.English;
 
