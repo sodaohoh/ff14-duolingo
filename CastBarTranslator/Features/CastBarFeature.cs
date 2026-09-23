@@ -394,8 +394,6 @@ public sealed unsafe class CastBarFeature : IDisposable
         AtkTextNode* pluginNode)
     {
         pluginNode->AtkResNode.Type = NodeType.Text;
-        pluginNode->AtkResNode.X = nativeNode->AtkResNode.X;
-        pluginNode->AtkResNode.Y = nativeNode->AtkResNode.Y;
         pluginNode->AtkResNode.Width = nativeNode->AtkResNode.Width;
         pluginNode->AtkResNode.Height = nativeNode->AtkResNode.Height;
         pluginNode->AtkResNode.ScaleX = nativeNode->AtkResNode.ScaleX;
