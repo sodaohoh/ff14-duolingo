@@ -2,9 +2,9 @@
   {
     "Author": "Soda Ohoh",
     "Name": "Cast Bar Translator",
-    "Punchline": "Learn FFXIV skill names in different languages while you play!",
-    "Description": "Displays bilingual action names on cast bars. Select any two languages (English, Japanese, German, French, Traditional Chinese) to show on target cast bars - perfect for learning skill names in another language.",
-    "Changelog": "Updated for Dalamud API 15.",
+    "Punchline": "Traditional Chinese action names beneath native FFXIV cast text.",
+    "Description": "Displays native game cast text with its Traditional Chinese action name beneath it on target and focus target cast bars. Native cast text remains unchanged.",
+    "Changelog": "Added a separate Traditional Chinese line for Target and Focus Target cast bars.",
     "InternalName": "CastBarTranslator",
     "AssemblyVersion": "0.0.0.3",
     "RepoUrl": "https://github.com/sodaohoh/ff14-duolingo",

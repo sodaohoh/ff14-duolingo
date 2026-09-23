@@ -40,7 +40,10 @@ public sealed class TranslationService
         _bottomLanguage = null;
 
         var topMap = LoadLanguageData(topLanguage);
-        var bottomMap = LoadLanguageData(bottomLanguage);
+
+        var bottomMap = bottomLanguage == topLanguage
+            ? topMap
+            : LoadLanguageData(bottomLanguage);
         var loadedLanguages = new Dictionary<GameLanguage, Dictionary<uint, string>>
         {
             [topLanguage] = topMap,

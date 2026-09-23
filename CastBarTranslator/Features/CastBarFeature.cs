@@ -410,8 +410,11 @@ public sealed unsafe class CastBarFeature : IDisposable
         pluginNode->AtkResNode.MultiplyBlue = nativeNode->AtkResNode.MultiplyBlue;
         pluginNode->AtkResNode.Priority = nativeNode->AtkResNode.Priority;
         pluginNode->AtkResNode.DrawFlags = nativeNode->AtkResNode.DrawFlags;
+        var currentVisible =
+            pluginNode->AtkResNode.NodeFlags & NodeFlags.Visible;
         pluginNode->AtkResNode.NodeFlags =
-            nativeNode->AtkResNode.NodeFlags & ~NodeFlags.Visible;
+            (nativeNode->AtkResNode.NodeFlags & ~NodeFlags.Visible) |
+            currentVisible;
 
         pluginNode->TextId = 0;
         pluginNode->TextColor = nativeNode->TextColor;

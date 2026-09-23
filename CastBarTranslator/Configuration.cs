@@ -28,12 +28,12 @@ public class Configuration : IPluginConfiguration
     public int Version { get; set; } = 1;
 
     /// <summary>
-    /// The language displayed on top (translation you want to learn).
+    /// Legacy field retained for saved-config compatibility. Runtime ignores it.
     /// </summary>
     public GameLanguage TopLanguage { get; set; } = GameLanguage.Japanese;
 
     /// <summary>
-    /// The language displayed on bottom (your native/reference language).
+    /// Legacy field retained for saved-config compatibility. Runtime ignores it.
     /// </summary>
     public GameLanguage BottomLanguage { get; set; } = GameLanguage.English;
 

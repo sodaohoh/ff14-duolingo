@@ -21,17 +21,14 @@ public sealed class TranslationServiceTests
     }
 
     [Fact]
-    public void AdditionalLanguageCanBeLoadedForProductionSecondNode()
+    public void TraditionalChineseLoadsWithoutLegacyLanguageSelections()
     {
         using var fixture = new TranslationFixture();
-        fixture.Write(GameLanguage.Japanese, "{\"123\":\"ファイジャ\"}");
-        fixture.Write(GameLanguage.English, "{\"123\":\"Fire IV\"}");
         fixture.Write(GameLanguage.ChineseTraditional, "{\"123\":\"烈火四\"}");
 
         var service = fixture.CreateService();
         service.Reload(
-            GameLanguage.Japanese,
-            GameLanguage.English,
+            GameLanguage.ChineseTraditional,
             GameLanguage.ChineseTraditional);
 
         Assert.Equal(
