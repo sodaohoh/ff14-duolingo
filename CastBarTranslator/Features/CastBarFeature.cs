@@ -32,7 +32,7 @@ internal enum SecondNodeCleanupReason
     Dispose,
 }
 
-public sealed unsafe class CastBarFeature : IDisposable
+public sealed unsafe partial class CastBarFeature : IDisposable
 {
     private const string AddonTargetInfoCastBar = "_TargetInfoCastBar";
     private const string AddonFocusTargetInfo = "_FocusTargetInfo";
@@ -40,10 +40,16 @@ public sealed unsafe class CastBarFeature : IDisposable
     private const uint NodeIdTargetInfoCastBar = 4;
     private const uint NodeIdFocusTargetInfo = 5;
     private const uint SecondNodeIdBase = 100_000_000;
+    private const int MaxSecondNodeChildChain = 512;
+    private static uint _nextSecondNodeId = SecondNodeIdBase;
 
+    private const string AddonEnemyList = "_EnemyList";
+    private const int MaxEnemyListOverlaySlots = 8;
     private readonly ITargetManager _targetManager;
     private readonly IAddonLifecycle _addonLifecycle;
     private readonly IGameGui _gameGui;
+    private readonly IObjectTable _objectTable;
+    private readonly IFramework _framework;
     private readonly TranslationService _translationService;
     private readonly Configuration _configuration;
     private readonly IPluginLog _log;
@@ -53,6 +59,8 @@ public sealed unsafe class CastBarFeature : IDisposable
         ITargetManager targetManager,
         IAddonLifecycle addonLifecycle,
         IGameGui gameGui,
+        IObjectTable objectTable,
+        IFramework framework,
         Configuration configuration,
         TranslationService translationService,
         IPluginLog log)
@@ -60,10 +68,13 @@ public sealed unsafe class CastBarFeature : IDisposable
         _targetManager = targetManager;
         _addonLifecycle = addonLifecycle;
         _gameGui = gameGui;
+        _objectTable = objectTable;
+        _framework = framework;
         _configuration = configuration;
         _translationService = translationService;
         _log = log;
 
+        _framework.Update += OnEnemyListCastUpdate;
         _addonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonTargetInfoCastBar, OnAddonDraw);
         _addonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonFocusTargetInfo, OnAddonDraw);
         _addonLifecycle.RegisterListener(
@@ -74,14 +85,29 @@ public sealed unsafe class CastBarFeature : IDisposable
             AddonEvent.PreFinalize,
             AddonFocusTargetInfo,
             OnAddonFinalize);
+        _addonLifecycle.RegisterListener(
+            AddonEvent.PreFinalize,
+            AddonEnemyList,
+            OnEnemyListFinalize);
     }
-
     public void Dispose()
     {
+        _framework.Update -= OnEnemyListCastUpdate;
         _addonLifecycle.UnregisterListener(OnAddonDraw);
         _addonLifecycle.UnregisterListener(OnAddonFinalize);
+        _addonLifecycle.UnregisterListener(OnEnemyListFinalize);
+        if (_framework.IsInFrameworkUpdateThread)
+        {
+            CleanupEnemyListCastNodes(SecondNodeCleanupReason.Dispose);
+        }
+        else
+        {
+            LeakEnemyListCastNodes("Plugin disposed off Framework thread.");
+        }
+
         CleanupSecondNodes(SecondNodeCleanupReason.Dispose);
     }
+
 
     private void OnAddonFinalize(AddonEvent type, AddonArgs args)
     {
@@ -97,7 +123,7 @@ public sealed unsafe class CastBarFeature : IDisposable
 
     private void OnAddonDraw(AddonEvent type, AddonArgs args)
     {
-        if (type != AddonEvent.PreDraw)
+        if (!_framework.IsInFrameworkUpdateThread || type != AddonEvent.PreDraw)
             return;
 
         var addon = (AtkUnitBase*)(nint)args.Addon;
@@ -246,11 +272,16 @@ public sealed unsafe class CastBarFeature : IDisposable
         string addonName,
         AtkUnitBase* addon,
         AtkTextNode* nativeNode,
-        AtkResNode* parent)
+        AtkResNode* parent,
+        bool parentIsAddonRoot = false)
     {
+        if (!_framework.IsInFrameworkUpdateThread)
+            throw new InvalidOperationException("Native node creation is not on Framework thread.");
         var tail = parent->ChildNode;
-        if (tail == nativeNode ||
-            (tail != null && tail->NextSiblingNode == nativeNode))
+        AtkResNode* siblingAnchor = parentIsAddonRoot ? null : &nativeNode->AtkResNode;
+        if (siblingAnchor != null &&
+            (tail == siblingAnchor ||
+             (tail != null && tail->NextSiblingNode == siblingAnchor)))
         {
             _log.Warning(
                 $"Second node creation skipped: Addon={addonName}, " +
@@ -267,7 +298,8 @@ public sealed unsafe class CastBarFeature : IDisposable
         }
 
         var uiSpace = IMemorySpace.GetUISpace();
-        var pluginNode = uiSpace == null ? null : uiSpace->Create<AtkTextNode>();
+        AtkTextNode* pluginNode =
+            uiSpace == null ? null : uiSpace->Create<AtkTextNode>();
         if (pluginNode == null)
         {
             _log.Warning(
@@ -281,10 +313,11 @@ public sealed unsafe class CastBarFeature : IDisposable
             AddonName = addonName,
             AddonPointer = (nint)addon,
             UldManagerPointer = (nint)manager,
-            NativeNodePointer = (nint)nativeNode,
+            NativeNodePointer = (nint)siblingAnchor,
             ParentPointer = (nint)parent,
             PluginNodePointer = (nint)pluginNode,
             NodeId = nodeId,
+            ParentIsAddonRoot = parentIsAddonRoot,
         };
 
         if (!ValidateSecondNodeInitialState(pluginNode))
@@ -300,11 +333,16 @@ public sealed unsafe class CastBarFeature : IDisposable
         {
             pluginNode->AtkResNode.NodeId = nodeId;
             CopySecondNodeAppearance(nativeNode, pluginNode);
+            if (parentIsAddonRoot)
+                pluginNode->AtkResNode.IsRenderedOnTop = true;
+            if (parentIsAddonRoot)
+                pluginNode->AtkResNode.ToggleVisibility(false);
             AttachSecondNode(parent, pluginNode, state);
-
             var resolvedAddon = ResolveOwningAddon(&pluginNode->AtkResNode);
             state.ResolvedAddonPointer = (nint)resolvedAddon;
-            state.OwnershipVerified = resolvedAddon == addon;
+            state.OwnershipVerified =
+                resolvedAddon == addon &&
+                (!parentIsAddonRoot || (nint)resolvedAddon->RootNode == (nint)parent);
             if (!state.OwnershipVerified)
             {
                 throw new InvalidOperationException(
@@ -313,12 +351,13 @@ public sealed unsafe class CastBarFeature : IDisposable
 
             manager = &resolvedAddon->UldManager;
             state.UldManagerPointer = (nint)manager;
-            if (!EnsureSecondNodeListCapacity(manager))
+            var nodeListReady = EnsureSecondNodeListCapacity(manager);
+            if (!nodeListReady)
                 throw new InvalidOperationException("Unable to expand ULD node list.");
-            if (!AddSecondNodeToObjectList(manager, &pluginNode->AtkResNode))
+            var objectListAdded =
+                AddSecondNodeToObjectList(manager, &pluginNode->AtkResNode);
+            if (!objectListAdded)
                 throw new InvalidOperationException("Unable to add node to ULD object list.");
-
-            state.AddedToObjectList = true;
             pluginNode->AtkResNode.IsDirty = true;
             manager->UpdateDrawNodeList();
 
@@ -328,9 +367,12 @@ public sealed unsafe class CastBarFeature : IDisposable
                     "Attached plugin node failed ownership verification.");
             }
 
-            _log.Debug(
-                $"Second node attached: Addon={addonName}, " +
-                $"NodeId={nodeId}, Plugin={FormatAddress((nint)pluginNode)}");
+            if (!parentIsAddonRoot || addonName != AddonEnemyList)
+            {
+                _log.Debug(
+                    $"Second node attached: Addon={addonName}, " +
+                    $"NodeId={nodeId}, Plugin={FormatAddress((nint)pluginNode)}");
+            }
             return state;
         }
         catch
@@ -361,7 +403,7 @@ public sealed unsafe class CastBarFeature : IDisposable
         if (pluginResNode->ParentNode != parent ||
             pluginResNode->PrevSiblingNode != expectedPrev ||
             pluginResNode->NextSiblingNode != expectedNext ||
-            parent->ChildNode != pluginResNode ||
+            (!state.ParentIsAddonRoot && parent->ChildNode != pluginResNode) ||
             parent->ChildCount != (ushort)(state.OriginalParentChildCount + 1))
         {
             return false;
@@ -382,11 +424,13 @@ public sealed unsafe class CastBarFeature : IDisposable
         var chain = ScanSecondNodeChildChain(
             parent,
             state.PluginNodePointer,
-            state.NativeNodePointer);
+            state.NativeNodePointer,
+            state.ParentIsAddonRoot ? MaxSecondNodeChildChain : 64);
         return chain.PluginCount == 1 &&
-               chain.NativeCount == 1 &&
+               chain.NativeCount == (state.ParentIsAddonRoot ? 0 : 1) &&
                chain.IsComplete &&
-               !chain.IsRepeated;
+               !chain.IsRepeated &&
+               (!state.ParentIsAddonRoot || chain.VisitedCount == parent->ChildCount);
     }
 
     private static void CopySecondNodeAppearance(
@@ -449,11 +493,11 @@ public sealed unsafe class CastBarFeature : IDisposable
 
         var nativeNode = (AtkResNode*)state.NativeNodePointer;
         state.OriginalNativePrevSibling =
-            nativeNode->PrevSiblingNode == null
+            nativeNode == null || nativeNode->PrevSiblingNode == null
                 ? 0
                 : (nint)nativeNode->PrevSiblingNode;
         state.OriginalNativeNextSibling =
-            nativeNode->NextSiblingNode == null
+            nativeNode == null || nativeNode->NextSiblingNode == null
                 ? 0
                 : (nint)nativeNode->NextSiblingNode;
 
@@ -470,10 +514,11 @@ public sealed unsafe class CastBarFeature : IDisposable
         parent->ChildCount++;
         state.Attached = true;
 
-        if (nativeNode->PrevSiblingNode !=
-                (AtkResNode*)state.OriginalNativePrevSibling ||
-            nativeNode->NextSiblingNode !=
-                (AtkResNode*)state.OriginalNativeNextSibling)
+        if (nativeNode != null &&
+            (nativeNode->PrevSiblingNode !=
+                 (AtkResNode*)state.OriginalNativePrevSibling ||
+             nativeNode->NextSiblingNode !=
+                 (AtkResNode*)state.OriginalNativeNextSibling))
         {
             throw new InvalidOperationException("Native sibling links changed.");
         }
@@ -487,14 +532,14 @@ public sealed unsafe class CastBarFeature : IDisposable
         var changed = pluginNode->AtkResNode.IsVisible() != visible;
         if (changed)
             pluginNode->AtkResNode.ToggleVisibility(visible);
-        state.LastVisible = visible;
         return changed;
     }
 
     private static bool TryGetSecondNodeId(AtkUldManager* manager, out uint nodeId)
     {
-        for (var candidate = SecondNodeIdBase; candidate < uint.MaxValue; candidate++)
+        while (_nextSecondNodeId < uint.MaxValue)
         {
+            var candidate = _nextSecondNodeId++;
             if (!ContainsNodeId(manager, candidate))
             {
                 nodeId = candidate;
@@ -636,6 +681,11 @@ public sealed unsafe class CastBarFeature : IDisposable
         SecondNodeCleanupReason reason,
         nint callbackAddon)
     {
+        if (!_framework.IsInFrameworkUpdateThread)
+        {
+            MarkSecondNodeLeaked(state, "Cleanup requested off Framework thread.");
+            return false;
+        }
         if (state.Lifetime != SecondNodeLifetime.Alive)
             return false;
 
@@ -654,7 +704,9 @@ public sealed unsafe class CastBarFeature : IDisposable
             freshAddon != null &&
             (nint)freshAddon == state.AddonPointer &&
             callbackMatchesStored &&
-            state.OwnershipVerified;
+            state.OwnershipVerified &&
+            (!state.ParentIsAddonRoot ||
+             (nint)freshAddon->RootNode == state.ParentPointer);
         if (!addonVerified)
         {
             MarkSecondNodeLeaked(
@@ -664,6 +716,12 @@ public sealed unsafe class CastBarFeature : IDisposable
         }
 
         var manager = &freshAddon->UldManager;
+        if (state.ParentIsAddonRoot && (nint)manager != state.UldManagerPointer)
+        {
+            MarkSecondNodeLeaked(state, "Fresh ULD manager changed.");
+            return false;
+        }
+
         var validation = ValidateSecondNodeDetach(manager, state);
         if (!validation.CanDetach)
         {
@@ -671,11 +729,10 @@ public sealed unsafe class CastBarFeature : IDisposable
             return false;
         }
 
+        var parentChildCountBeforeDetach = validation.Parent->ChildCount;
         DetachSecondNode(validation, state);
         var objectListRemoved =
             RemoveSecondNodeFromObjectList(manager, validation.PluginResNode);
-        if (objectListRemoved)
-            state.AddedToObjectList = false;
         if (objectListRemoved)
             manager->UpdateDrawNodeList();
 
@@ -686,7 +743,11 @@ public sealed unsafe class CastBarFeature : IDisposable
         var childChain = ScanSecondNodeChildChain(
             validation.Parent,
             state.PluginNodePointer,
-            state.NativeNodePointer);
+            state.NativeNodePointer,
+            state.ParentIsAddonRoot ? MaxSecondNodeChildChain : 64);
+        var parentCountRestored = state.ParentIsAddonRoot
+            ? validation.Parent->ChildCount == parentChildCountBeforeDetach - 1
+            : validation.Parent->ChildCount == state.OriginalParentChildCount;
         var detached =
             membership.NodeListPointerCount == 0 &&
             membership.NodeListIdCount == 0 &&
@@ -695,7 +756,9 @@ public sealed unsafe class CastBarFeature : IDisposable
             childChain.PluginCount == 0 &&
             childChain.IsComplete &&
             !childChain.IsRepeated &&
-            validation.Parent->ChildCount == state.OriginalParentChildCount &&
+            (!state.ParentIsAddonRoot ||
+             childChain.VisitedCount == validation.Parent->ChildCount) &&
+            parentCountRestored &&
             NativeSiblingChainRestored(state) &&
             validation.PluginResNode->ParentNode == null &&
             validation.PluginResNode->PrevSiblingNode == null &&
@@ -751,6 +814,19 @@ public sealed unsafe class CastBarFeature : IDisposable
         var validation = new SecondNodeDetachValidation();
         if (manager == null || !state.Attached)
             return validation;
+        if (state.ParentIsAddonRoot)
+        {
+            var objects = manager->Objects;
+            if (manager->NodeList == null ||
+                manager->NodeListCount > MaxSecondNodeChildChain ||
+                objects == null ||
+                objects->NodeCount < 0 ||
+                objects->NodeCount > MaxSecondNodeChildChain ||
+                (objects->NodeCount > 0 && objects->NodeList == null))
+            {
+                return validation;
+            }
+        }
 
         var membership = ScanSecondNodeMembership(
             manager,
@@ -775,17 +851,38 @@ public sealed unsafe class CastBarFeature : IDisposable
             return validation;
 
         validation.ParentMatches = (nint)validation.Parent == state.ParentPointer;
-        validation.PrevMatches =
-            validation.PluginResNode->PrevSiblingNode ==
-            (AtkResNode*)state.OriginalTail;
-        validation.NextMatches =
-            validation.PluginResNode->NextSiblingNode ==
-            (AtkResNode*)state.OriginalTailNextSibling;
-        validation.ParentChildMatches =
-            validation.Parent->ChildNode == validation.PluginResNode;
-        validation.ChildCountMatches =
-            validation.Parent->ChildCount ==
-            (ushort)(state.OriginalParentChildCount + 1);
+        var chain = ScanSecondNodeChildChain(
+            validation.Parent,
+            state.PluginNodePointer,
+            state.NativeNodePointer,
+            state.ParentIsAddonRoot ? MaxSecondNodeChildChain : 64);
+        validation.PluginInChildChain = chain.PluginCount == 1;
+        validation.NativeNodeInChildChain = state.ParentIsAddonRoot
+            ? chain.NativeCount == 0
+            : chain.NativeCount == 1;
+        validation.ChildChainComplete = chain.IsComplete;
+        validation.ChildChainRepeated = chain.IsRepeated;
+
+        validation.PrevMatches = state.ParentIsAddonRoot
+            ? validation.PluginResNode->PrevSiblingNode == null ||
+              validation.PluginResNode->PrevSiblingNode->NextSiblingNode ==
+              validation.PluginResNode
+            : validation.PluginResNode->PrevSiblingNode ==
+              (AtkResNode*)state.OriginalTail;
+        validation.NextMatches = state.ParentIsAddonRoot
+            ? validation.PluginResNode->NextSiblingNode == null ||
+              validation.PluginResNode->NextSiblingNode->PrevSiblingNode ==
+              validation.PluginResNode
+            : validation.PluginResNode->NextSiblingNode ==
+              (AtkResNode*)state.OriginalTailNextSibling;
+        validation.ParentChildMatches = state.ParentIsAddonRoot
+            ? chain.IsComplete && !chain.IsRepeated &&
+              chain.VisitedCount == validation.Parent->ChildCount
+            : validation.Parent->ChildNode == validation.PluginResNode;
+        validation.ChildCountMatches = state.ParentIsAddonRoot
+            ? chain.VisitedCount == validation.Parent->ChildCount
+            : validation.Parent->ChildCount ==
+              (ushort)(state.OriginalParentChildCount + 1);
         validation.PreviousLinkMatches =
             validation.PluginResNode->PrevSiblingNode == null ||
             validation.PluginResNode->PrevSiblingNode->NextSiblingNode ==
@@ -794,23 +891,7 @@ public sealed unsafe class CastBarFeature : IDisposable
             validation.PluginResNode->NextSiblingNode == null ||
             validation.PluginResNode->NextSiblingNode->PrevSiblingNode ==
             validation.PluginResNode;
-
-        var chain = ScanSecondNodeChildChain(
-            validation.Parent,
-            state.PluginNodePointer,
-            state.NativeNodePointer);
-        validation.PluginInChildChain = chain.PluginCount == 1;
-        validation.NativeNodeInChildChain = chain.NativeCount == 1;
-        validation.ChildChainComplete = chain.IsComplete;
-        validation.ChildChainRepeated = chain.IsRepeated;
-
-        var nativeNode = (AtkResNode*)state.NativeNodePointer;
-        validation.NativeSiblingLinksMatch =
-            nativeNode != null &&
-            nativeNode->PrevSiblingNode ==
-            (AtkResNode*)state.OriginalNativePrevSibling &&
-            nativeNode->NextSiblingNode ==
-            (AtkResNode*)state.OriginalNativeNextSibling;
+        validation.NativeSiblingLinksMatch = NativeSiblingChainRestored(state);
         return validation;
     }
 
@@ -854,7 +935,8 @@ public sealed unsafe class CastBarFeature : IDisposable
     private static SecondNodeChildChain ScanSecondNodeChildChain(
         AtkResNode* parent,
         nint pluginPointer,
-        nint nativePointer)
+        nint nativePointer,
+        int maxChildren = 64)
     {
         var result = new SecondNodeChildChain();
         if (parent == null)
@@ -862,7 +944,7 @@ public sealed unsafe class CastBarFeature : IDisposable
 
         var seen = new HashSet<nint>();
         var child = parent->ChildNode;
-        for (var index = 0; child != null && index < 64; index++)
+        for (var index = 0; child != null && index < maxChildren; index++)
         {
             if (!seen.Add((nint)child))
             {
@@ -870,6 +952,7 @@ public sealed unsafe class CastBarFeature : IDisposable
                 break;
             }
 
+            result.VisitedCount++;
             if ((nint)child == pluginPointer)
                 result.PluginCount++;
             if ((nint)child == nativePointer)
@@ -895,7 +978,15 @@ public sealed unsafe class CastBarFeature : IDisposable
         if (next != null)
             next->PrevSiblingNode = previous;
 
-        parent->ChildNode = (AtkResNode*)state.OriginalParentChildNode;
+        if (state.ParentIsAddonRoot)
+        {
+            if (parent->ChildNode == plugin)
+                parent->ChildNode = previous;
+        }
+        else
+        {
+            parent->ChildNode = (AtkResNode*)state.OriginalParentChildNode;
+        }
         parent->ChildCount--;
         plugin->ParentNode = null;
         plugin->PrevSiblingNode = null;
@@ -905,6 +996,9 @@ public sealed unsafe class CastBarFeature : IDisposable
 
     private static bool NativeSiblingChainRestored(SecondNodeState state)
     {
+        if (state.ParentIsAddonRoot)
+            return state.NativeNodePointer == 0;
+
         var nativeNode = (AtkResNode*)state.NativeNodePointer;
         return nativeNode != null &&
                nativeNode->PrevSiblingNode ==
@@ -961,7 +1055,6 @@ public sealed unsafe class CastBarFeature : IDisposable
         state.DeferredTextBuffers.Clear();
         state.HasSetText = false;
         state.Text = null;
-        state.AddedToObjectList = false;
         state.Attached = false;
         state.OwnershipVerified = false;
         state.OriginalParentChildNode = 0;
@@ -1054,7 +1147,9 @@ public sealed unsafe class CastBarFeature : IDisposable
         string text)
     {
         if (string.Equals(state.Text, text, StringComparison.Ordinal))
+        {
             return false;
+        }
 
         var pluginNode = (AtkTextNode*)state.PluginNodePointer;
         var previousBuffer = state.TextBuffer;
@@ -1194,6 +1289,7 @@ public sealed unsafe class CastBarFeature : IDisposable
     private sealed class SecondNodeChildChain
     {
         public int PluginCount;
+        public int VisitedCount;
         public int NativeCount;
         public bool IsComplete;
         public bool IsRepeated;
@@ -1214,9 +1310,9 @@ public sealed unsafe class CastBarFeature : IDisposable
         public readonly List<IntPtr> DeferredTextBuffers = new();
         public bool HasSetText;
         public string? Text;
-        public bool AddedToObjectList;
         public bool Attached;
         public bool OwnershipVerified;
+        public bool ParentIsAddonRoot;
         public nint OriginalParentChildNode;
         public nint OriginalTail;
         public nint OriginalTailNextSibling;
@@ -1224,6 +1320,8 @@ public sealed unsafe class CastBarFeature : IDisposable
         public nint OriginalNativePrevSibling;
         public nint OriginalNativeNextSibling;
         public byte? LastAppliedFontSize;
-        public bool LastVisible;
+        public bool OverlayStyleApplied;
+        public ushort EnemyListMeasuredTextWidth;
+        public ushort EnemyListMeasuredTextHeight;
     }
 }

@@ -25,7 +25,8 @@ public class Configuration : IPluginConfiguration
     /// </summary>
     public const int DefaultCastBarHeight = 44;
 
-    public int Version { get; set; } = 1;
+    public const int CurrentVersion = 2;
+    public int Version { get; set; } = CurrentVersion;
 
     /// <summary>
     /// Legacy field retained for saved-config compatibility. Runtime ignores it.
@@ -41,6 +42,7 @@ public class Configuration : IPluginConfiguration
     /// Legacy setting retained for config compatibility. Runtime ignores it.
     /// </summary>
     public int CastBarHeight { get; set; } = DefaultCastBarHeight;
+    public bool TranslateEnemyListCasts { get; set; } = false;
 
     public void Save()
     {
