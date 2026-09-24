@@ -8,7 +8,7 @@ A Dalamud plugin that adds a configurable translated second line to FFXIV cast b
 
 ## What It Does
 
-Cast Bar Translator adds a translation beneath the native cast name on the Target Cast Bar and Focus Target. The first line is FFXIV's own game text: the plugin does not select, replace, or rewrite it. You choose the language for the plugin-owned second line.
+Cast Bar Translator adds a translation beneath the native cast name on the Target Cast Bar and Focus Target, and can optionally add translations to Enemy List casts. The first line is FFXIV's own game text: the plugin does not select, replace, or rewrite it. You choose the language for the plugin-owned second line.
 
 Example:
 
@@ -24,7 +24,7 @@ First line: native FFXIV cast text. Second line: configured translation (English
 - Preserves the game's native cast text unchanged.
 - Adds an independent, plugin-owned translated line beneath it.
 - Lets you choose the second-line language.
-- Supports Target Cast Bar and Focus Target.
+- Supports Target Cast Bar, Focus Target, and optional Enemy List cast translations.
 - Adapts font size for longer translated names to fit the available text width where possible.
 - Refreshes translation data automatically through the scheduled GitHub Actions workflow.
 
@@ -52,7 +52,7 @@ English, Japanese, German, and French data are generated from the corresponding 
 
 ## Configuration
 
-Open Cast Bar Translator settings in the Dalamud plugin installer. Choose **Second Language** for the plugin-owned translated line. Use **Reload Data** to reload translation data.
+Open Cast Bar Translator settings in the Dalamud plugin installer. Choose **Second Language** for the plugin-owned translated line. Enable **Translate Enemy List casts** to show translations for Enemy List casts. Use **Reload Data** to reload translation data.
 
 ## How It Works
 
@@ -114,6 +114,7 @@ repo.json
 ## Data Notes / Known Limitations
 
 Traditional Chinese cast-bar rendering was validated in v0.0.0.3. The Traditional Chinese data is derived from Simplified Chinese source data and converted with OpenCC, so terminology is not guaranteed to match an official Traditional Chinese / Taiwan localization exactly.
+Some Traditional Chinese characters are not available in FFXIV's native game font and may appear as fallback glyphs.
 
 ## License
 

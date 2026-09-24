@@ -45,6 +45,13 @@ public class ConfigWindow : Window, IDisposable
             ImGui.EndCombo();
         }
         ImGui.Spacing();
+        var translateEnemyListCasts = _configuration.TranslateEnemyListCasts;
+        if (ImGui.Checkbox("Translate Enemy List casts", ref translateEnemyListCasts))
+        {
+            _configuration.TranslateEnemyListCasts = translateEnemyListCasts;
+            _configuration.Save();
+        }
+        ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 

@@ -18,6 +18,8 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IObjectTable ObjectTable { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
 
     private readonly WindowSystem _windowSystem = new("CastBarTranslator");
@@ -32,6 +34,11 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        if (Configuration.Version < Configuration.CurrentVersion)
+        {
+            Configuration.Version = Configuration.CurrentVersion;
+            Configuration.Save();
+        }
         _translationService = new TranslationService(PluginInterface.AssemblyLocation.Directory?.FullName);
 
         _configWindow = new ConfigWindow(this);
@@ -43,6 +50,8 @@ public sealed class Plugin : IDalamudPlugin
             TargetManager,
             AddonLifecycle,
             GameGui,
+            ObjectTable,
+            Framework,
             Configuration,
             _translationService,
             Log);
