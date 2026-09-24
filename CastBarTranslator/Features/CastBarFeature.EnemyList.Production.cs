@@ -419,13 +419,16 @@ public sealed unsafe partial class CastBarFeature
             changed = true;
         }
 
-        if (changed || state.EnemyListMeasuredTextHeight == 0)
+        if (changed ||
+            state.EnemyListMeasuredTextWidth == 0 ||
+            state.EnemyListMeasuredTextHeight == 0)
         {
             ushort measuredWidth = 0;
             ushort measuredHeight = 0;
             pluginNode->GetTextDrawSize(&measuredWidth, &measuredHeight);
             if (measuredWidth == 0 || measuredHeight == 0)
             {
+                state.EnemyListMeasuredTextWidth = 0;
                 state.EnemyListMeasuredTextHeight = 0;
 
                 RecordEnemyListCastFailure(slot, "text-measurement-empty");
@@ -433,6 +436,7 @@ public sealed unsafe partial class CastBarFeature
                 return;
             }
 
+            state.EnemyListMeasuredTextWidth = measuredWidth;
             state.EnemyListMeasuredTextHeight = measuredHeight;
         }
 
@@ -447,6 +451,7 @@ public sealed unsafe partial class CastBarFeature
                 targetX,
                 pluginWidth,
                 derivedFontSize,
+                state.EnemyListMeasuredTextWidth,
                 state.EnemyListMeasuredTextHeight,
                 out var pluginRootLocalY,
                 out failure))

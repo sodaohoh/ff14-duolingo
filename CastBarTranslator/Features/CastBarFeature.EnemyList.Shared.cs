@@ -305,6 +305,7 @@ public sealed unsafe partial class CastBarFeature
         float targetX,
         ushort pluginWidth,
         byte derivedPluginFontSize,
+        ushort measuredTextWidth,
         ushort measuredTextHeight,
         out float pluginRootLocalY,
         out string failure)
@@ -321,8 +322,8 @@ public sealed unsafe partial class CastBarFeature
             failure = "auto-layout-row-pitch-invalid";
             return false;
         }
-        if (pluginWidth == 0 || measuredTextHeight == 0 ||
-            derivedPluginFontSize == 0)
+        if (pluginWidth == 0 || measuredTextWidth == 0 ||
+            measuredTextHeight == 0 || derivedPluginFontSize == 0)
         {
             failure = "auto-layout-measurement-invalid";
             return false;
@@ -402,18 +403,14 @@ public sealed unsafe partial class CastBarFeature
             return false;
         }
 
-        var gapCenterDouble = ((double)gapTop + gapBottom) * 0.5d;
-        var translationTopDouble = gapCenterDouble - measuredTextHeight * 0.5d;
-        if (!double.IsFinite(gapCenterDouble) ||
-            !double.IsFinite(translationTopDouble) ||
-            Math.Abs(gapCenterDouble) > float.MaxValue ||
-            Math.Abs(translationTopDouble) > float.MaxValue)
+        var gapCenterScreenY = ((double)gapTop + gapBottom) * 0.5d;
+        if (!double.IsFinite(gapCenterScreenY) ||
+            Math.Abs(gapCenterScreenY) > float.MaxValue)
         {
             failure = "auto-layout-center-non-finite";
             return false;
         }
 
-        var translationTopScreenY = (float)translationTopDouble;
         if (!TryGetNodeScreenTransform(
                 root,
                 out var rootTransform,
@@ -435,9 +432,32 @@ public sealed unsafe partial class CastBarFeature
             return false;
         }
 
-        var pluginRootLocalYDouble =
-            ((double)translationTopScreenY - rootScreenOrigin.Y +
-             (double)targetX * rootTransform.M21) / rootTransform.M22;
+        if (!TryGetEnemyListOverlayTextBoundsInParent(
+                nativeResNode,
+                pluginWidth,
+                measuredTextWidth,
+                measuredTextHeight,
+                out var textTopLeftParentOffset,
+                out var textTopRightParentOffset,
+                out var textBottomLeftParentOffset,
+                out var textBottomRightParentOffset,
+                out failure))
+        {
+            failure = $"node16-{failure}";
+            return false;
+        }
+
+        // Native-parent offsets are root-local for the plugin because it copies this node transform.
+        var pluginRootLocalYDouble = CalculateEnemyListOverlayRootLocalY(
+            rootScreenOrigin.Y,
+            rootTransform.M21,
+            rootTransform.M22,
+            targetX,
+            gapCenterScreenY,
+            textTopLeftParentOffset,
+            textTopRightParentOffset,
+            textBottomLeftParentOffset,
+            textBottomRightParentOffset);
         if (!double.IsFinite(pluginRootLocalYDouble) ||
             Math.Abs(pluginRootLocalYDouble) > float.MaxValue)
         {
@@ -445,22 +465,14 @@ public sealed unsafe partial class CastBarFeature
             return false;
         }
 
-        var pluginOriginScreenX =
-            (double)rootScreenOrigin.X +
-            (double)targetX * rootTransform.M11 -
-            pluginRootLocalYDouble * rootTransform.M12;
-        if (!TryCreateFiniteVector2(
-                pluginOriginScreenX,
-                translationTopScreenY,
-                out var pluginOriginScreen))
-        {
-            failure = "plugin-origin-screen-non-finite";
-            return false;
-        }
-
-        if (!TryScreenPointToNodeLocal(
+        if (!TryNodeLocalPointToScreen(
                 root,
-                pluginOriginScreen,
+                new Vector2(targetX, (float)pluginRootLocalYDouble),
+                out var pluginPositionScreen,
+                out failure) ||
+            !TryScreenPointToNodeLocal(
+                root,
+                pluginPositionScreen,
                 out var pluginRootLocal,
                 out failure))
         {
@@ -499,6 +511,150 @@ public sealed unsafe partial class CastBarFeature
         failure = string.Empty;
         return true;
     }
+    private static bool TryGetEnemyListOverlayTextBoundsInParent(
+        AtkResNode* nativeNode,
+        ushort nodeWidth,
+        ushort measuredTextWidth,
+        ushort measuredTextHeight,
+        out Vector2 topLeftOffset,
+        out Vector2 topRightOffset,
+        out Vector2 bottomLeftOffset,
+        out Vector2 bottomRightOffset,
+        out string failure)
+    {
+        topLeftOffset = default;
+        topRightOffset = default;
+        bottomLeftOffset = default;
+        bottomRightOffset = default;
+        if (nativeNode == null || nodeWidth == 0 ||
+            measuredTextWidth == 0 || measuredTextHeight == 0)
+        {
+            failure = "text-bounds-input-invalid";
+            return false;
+        }
+
+        var parent = nativeNode->ParentNode;
+        if (parent == null)
+        {
+            failure = "node-parent-null";
+            return false;
+        }
+
+        // Map native text bounds through the parent; new plugin ScreenX/ScreenY may be stale.
+        var visibleTextWidth = Math.Min(nodeWidth, measuredTextWidth);
+        var textLeftX = (float)(nodeWidth - visibleTextWidth);
+        var textRightX = (float)nodeWidth;
+        if (!TryNodeLocalPointToParentLocal(
+                nativeNode,
+                parent,
+                new Vector2(textLeftX, 0),
+                out var topLeftInParent,
+                out failure) ||
+            !TryNodeLocalPointToParentLocal(
+                nativeNode,
+                parent,
+                new Vector2(textRightX, 0),
+                out var topRightInParent,
+                out failure) ||
+            !TryNodeLocalPointToParentLocal(
+                nativeNode,
+                parent,
+                new Vector2(textLeftX, measuredTextHeight),
+                out var bottomLeftInParent,
+                out failure) ||
+            !TryNodeLocalPointToParentLocal(
+                nativeNode,
+                parent,
+                new Vector2(textRightX, measuredTextHeight),
+                out var bottomRightInParent,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!TryCreateFiniteVector2(
+                (double)topLeftInParent.X - nativeNode->X,
+                (double)topLeftInParent.Y - nativeNode->Y,
+                out topLeftOffset) ||
+            !TryCreateFiniteVector2(
+                (double)topRightInParent.X - nativeNode->X,
+                (double)topRightInParent.Y - nativeNode->Y,
+                out topRightOffset) ||
+            !TryCreateFiniteVector2(
+                (double)bottomLeftInParent.X - nativeNode->X,
+                (double)bottomLeftInParent.Y - nativeNode->Y,
+                out bottomLeftOffset) ||
+            !TryCreateFiniteVector2(
+                (double)bottomRightInParent.X - nativeNode->X,
+                (double)bottomRightInParent.Y - nativeNode->Y,
+                out bottomRightOffset))
+        {
+            failure = "text-bounds-offset-non-finite";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool TryNodeLocalPointToParentLocal(
+        AtkResNode* node,
+        AtkResNode* parent,
+        Vector2 localPoint,
+        out Vector2 parentLocalPoint,
+        out string failure)
+    {
+        parentLocalPoint = default;
+        if (node == null || parent == null)
+        {
+            failure = "node-or-parent-null";
+            return false;
+        }
+
+        if (!TryNodeLocalPointToScreen(node, localPoint, out var screenPoint, out failure))
+            return false;
+
+        return TryScreenPointToNodeLocal(parent, screenPoint, out parentLocalPoint, out failure);
+    }
+
+    internal static double CalculateEnemyListOverlayRootLocalY(
+        float rootScreenOriginY,
+        float rootTransformM21,
+        float rootTransformM22,
+        float targetX,
+        double gapCenterScreenY,
+        Vector2 textTopLeftOffset,
+        Vector2 textTopRightOffset,
+        Vector2 textBottomLeftOffset,
+        Vector2 textBottomRightOffset)
+    {
+        // Project all transformed corners to screen Y, then solve root-local Y at fixed X.
+        var topLeftScreenOffsetY =
+            -(double)textTopLeftOffset.X * rootTransformM21 +
+            (double)textTopLeftOffset.Y * rootTransformM22;
+        var topRightScreenOffsetY =
+            -(double)textTopRightOffset.X * rootTransformM21 +
+            (double)textTopRightOffset.Y * rootTransformM22;
+        var bottomLeftScreenOffsetY =
+            -(double)textBottomLeftOffset.X * rootTransformM21 +
+            (double)textBottomLeftOffset.Y * rootTransformM22;
+        var bottomRightScreenOffsetY =
+            -(double)textBottomRightOffset.X * rootTransformM21 +
+            (double)textBottomRightOffset.Y * rootTransformM22;
+        var visualCenterScreenOffsetY =
+            (Math.Min(
+                 Math.Min(topLeftScreenOffsetY, topRightScreenOffsetY),
+                 Math.Min(bottomLeftScreenOffsetY, bottomRightScreenOffsetY)) +
+             Math.Max(
+                 Math.Max(topLeftScreenOffsetY, topRightScreenOffsetY),
+                 Math.Max(bottomLeftScreenOffsetY, bottomRightScreenOffsetY))) *
+            0.5d;
+
+        return (gapCenterScreenY - rootScreenOriginY +
+                (double)targetX * rootTransformM21 - visualCenterScreenOffsetY) /
+               rootTransformM22;
+    }
+
     private static bool TryCalculateEnemyListOverlayX(
         AtkResNode* root,
         AtkTextNode* nativeNode,

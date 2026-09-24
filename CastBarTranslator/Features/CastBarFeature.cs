@@ -1321,6 +1321,7 @@ public sealed unsafe partial class CastBarFeature : IDisposable
         public nint OriginalNativeNextSibling;
         public byte? LastAppliedFontSize;
         public bool OverlayStyleApplied;
+        public ushort EnemyListMeasuredTextWidth;
         public ushort EnemyListMeasuredTextHeight;
     }
 }
