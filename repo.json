@@ -6,7 +6,7 @@
     "Description": "Displays the game's native cast name with a configurable translated second line on target and focus target cast bars. Choose English, Japanese, German, French, or Traditional Chinese for the plugin-rendered line.",
     "Changelog": "Added a configurable translated second line while preserving native cast text.",
     "InternalName": "CastBarTranslator",
-    "AssemblyVersion": "0.0.0.3",
+    "AssemblyVersion": "0.0.0.4",
     "RepoUrl": "https://github.com/sodaohoh/ff14-duolingo",
     "ApplicableVersion": "any",
     "Tags": [
